@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Arial, sans-serif;
+        font-size: 13px;
+        color: #202124;
+      }
+
+      body {
+        margin: 0;
+        padding: 14px;
+        background: #fff;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 18px;
+      }
+
+      .controls {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      label {
+        display: grid;
+        gap: 4px;
+        font-weight: 600;
+      }
+
+      select,
+      button {
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        padding: 7px 8px;
+        background: #fff;
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .task {
+        border: 1px solid #dadce0;
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #fff;
+      }
+
+      .task-title {
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .meta {
+        color: #5f6368;
+        line-height: 1.45;
+      }
+
+      .status {
+        margin: 10px 0;
+        min-height: 18px;
+      }
+
+      .error {
+        color: #b3261e;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>My Task Queue</h1>
+    <div class="controls">
+      <label>
+        User
+        <select id="user"></select>
+      </label>
+      <button type="button" onclick="loadQueue()">Refresh</button>
+    </div>
+    <div id="status" class="status">Loading...</div>
+    <div id="tasks"></div>
+
+    <script>
+      function setStatus(message, type) {
+        const status = document.getElementById('status');
+        status.textContent = message || '';
+        status.className = `status ${type || ''}`;
+      }
+
+      function fillSelect(id, options, selectedValue) {
+        const select = document.getElementById(id);
+        select.innerHTML = options.map((option) => {
+          const selected = option === selectedValue ? ' selected' : '';
+          return `<option value="${escapeAttr(option)}"${selected}>${escapeHtml(option)}</option>`;
+        }).join('');
+      }
+
+      function loadQueue() {
+        const user = document.getElementById('user').value;
+        setStatus('Loading...', '');
+        google.script.run
+          .withSuccessHandler(renderTasks)
+          .withFailureHandler((error) => {
+            setStatus(error && error.message ? error.message : String(error), 'error');
+          })
+          .getTaskQueue(user);
+      }
+
+      function renderTasks(tasks) {
+        const container = document.getElementById('tasks');
+        setStatus(`${tasks.length} active task(s)`, '');
+        container.innerHTML = tasks.map((task) => `
+          <div class="task">
+            <div class="task-title">#${escapeHtml(task.contentId)} ${escapeHtml(task.idea || '')}</div>
+            <div class="meta">
+              Status: ${escapeHtml(task.status || '')}<br>
+              Owner: ${escapeHtml(task.currentOwner || '')}<br>
+              Filmer: ${escapeHtml(task['Assigned Filmer(s)'] || '')}<br>
+              Film: ${escapeHtml(task['Filming Date'] || '')}<br>
+              Post: ${escapeHtml(task['Posting Date'] || '')} ${escapeHtml(task.Time || '')}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function escapeAttr(value) {
+        return escapeHtml(value).replace(/`/g, '&#96;');
+      }
+
+      google.script.run
+        .withSuccessHandler((model) => {
+          fillSelect('user', model.users, model.defaultUser);
+          loadQueue();
+        })
+        .withFailureHandler((error) => {
+          setStatus(error && error.message ? error.message : String(error), 'error');
+        })
+        .getTaskQueueModel();
+    </script>
+  </body>
+</html>
