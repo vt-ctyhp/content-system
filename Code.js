@@ -177,6 +177,76 @@ const PHASE1 = {
   },
 };
 
+const WORKFLOW_TRANSITIONS = {
+  assignFilming: {
+    label: 'Assign Filming',
+    from: ['Planned'],
+    to: 'Assigned to Film',
+    owner: (payload) => payload.assignedFilmer || '',
+    requiredFields: ['contentId', 'assignedFilmer', 'filmingDate', 'shotList', 'filmingInstructions'],
+  },
+  submitRawFootage: {
+    label: 'Submit Raw Footage',
+    from: ['Assigned to Film'],
+    to: 'Filming Complete',
+    owner: 'Stephanie',
+    requiredFields: ['contentId', 'rawFootageUrl'],
+  },
+  startEditingV1: {
+    action: 'startEditing',
+    label: 'Start Editing',
+    from: ['Filming Complete'],
+    to: 'Editing V1',
+    owner: 'Stephanie',
+    requiredFields: ['contentId'],
+  },
+  startEditingRevision: {
+    action: 'startEditing',
+    label: 'Start Revision',
+    from: ['Revision Requested'],
+    to: 'Editing V2+',
+    owner: 'Stephanie',
+    requiredFields: ['contentId'],
+  },
+  submitEditedVersion: {
+    label: 'Submit Edited Version',
+    from: ['Editing V1', 'Editing V2+'],
+    to: 'Ready for Abby Review',
+    owner: 'Abby',
+    requiredFields: ['contentId', 'editedVideoUrl'],
+  },
+  approveContent: {
+    action: 'reviewApprove',
+    label: 'Review / Approve',
+    from: ['Ready for Abby Review'],
+    to: 'Approved',
+    owner: 'Abby',
+    requiredFields: ['contentId', 'decision'],
+  },
+  requestRevision: {
+    action: 'reviewApprove',
+    label: 'Request Revision',
+    from: ['Ready for Abby Review'],
+    to: 'Revision Requested',
+    owner: 'Stephanie',
+    requiredFields: ['contentId', 'decision', 'feedbackNotes'],
+  },
+  scheduleContent: {
+    label: 'Schedule Content',
+    from: ['Approved'],
+    to: 'Scheduled',
+    owner: 'Stephanie',
+    requiredFields: ['contentId', 'platforms', 'postingDate', 'postingTime', 'caption', 'cta', 'hashtags'],
+  },
+  markPosted: {
+    label: 'Mark Posted',
+    from: ['Scheduled'],
+    to: 'Posted',
+    owner: '',
+    requiredFields: ['contentId', 'platformPosted'],
+  },
+};
+
 function setupPhase1DatabaseFoundation() {
   const spreadsheet = SpreadsheetApp.getActive();
   const activityLog = ensureActivityLog_(spreadsheet);
@@ -272,9 +342,10 @@ function openMyTaskQueueSidebar() {
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
-function showWorkflowDialog_(action) {
+function showWorkflowDialog_(action, prefillContentId) {
   const template = HtmlService.createTemplateFromFile('WorkflowDialog');
   template.action = action;
+  template.prefillContentId = prefillContentId || '';
   const title = getWorkflowActionConfig_(action).title;
   const html = template.evaluate()
     .setWidth(560)
@@ -282,11 +353,15 @@ function showWorkflowDialog_(action) {
   SpreadsheetApp.getUi().showModalDialog(html, title);
 }
 
-function getWorkflowDialogModel(action) {
+function openWorkflowDialogForTask(action, contentId) {
+  showWorkflowDialog_(action, contentId);
+}
+
+function getWorkflowDialogModel(action, prefillContentId) {
   const config = getWorkflowActionConfig_(action);
   const spreadsheet = SpreadsheetApp.getActive();
   const options = getWorkflowOptions_(spreadsheet);
-  const selectedContent = getSelectedContentContext_(spreadsheet);
+  const selectedContent = prefillContentId ? getContentRecordById_(prefillContentId) : getSelectedContentContext_(spreadsheet);
   const selectedIdea = getSelectedIdeaContext_(spreadsheet);
 
   return {
@@ -297,7 +372,7 @@ function getWorkflowDialogModel(action) {
     options,
     selectedContent,
     selectedIdea,
-    defaults: buildWorkflowDefaults_(action, selectedContent, selectedIdea),
+    defaults: buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillContentId),
   };
 }
 
@@ -357,6 +432,10 @@ function getTaskQueue(userName) {
     .map((row, index) => rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index))
     .filter((record) => record.contentId && record.status !== 'Posted')
     .filter((record) => taskBelongsInQueue_(record, normalizedUser))
+    .map((record) => {
+      record.availableActions = getAvailableActionsForRecord_(record, normalizedUser);
+      return record;
+    })
     .slice(0, 100);
 }
 
@@ -565,89 +644,94 @@ function promoteIdeaToPlanning_(payload) {
 }
 
 function assignFilmingTask_(payload) {
-  requireFields_(payload, ['contentId', 'assignedFilmer', 'filmingDate', 'shotList', 'filmingInstructions']);
-  updateContentRecord_(payload.contentId, {
+  advanceWorkflow_(payload.contentId, 'assignFilming', payload, {
+    updates: {
     'Assigned Filmer(s)': payload.assignedFilmer,
     'Filming Date': payload.filmingDate,
     'Shot List': payload.shotList,
     'Filming Instructions': payload.filmingInstructions,
     'Props / Setup Notes': payload.propsSetupNotes || '',
     Location: payload.location || '',
-    'Current Owner': payload.assignedFilmer,
-    Status: 'Assigned to Film',
     'Stage Started Timestamp': new Date(),
-  }, 'ASSIGN_FILMING', payload.propsSetupNotes || '', '');
+    },
+    logAction: 'ASSIGN_FILMING',
+    notes: payload.propsSetupNotes || '',
+  });
 
   return successResult_(`Content #${payload.contentId} assigned to ${payload.assignedFilmer}.`);
 }
 
 function submitRawFootage_(payload) {
-  requireFields_(payload, ['contentId', 'rawFootageUrl']);
   if (payload.confirmComplete !== 'true') {
     throw new Error('Confirm filming is complete before submitting raw footage.');
   }
 
-  updateContentRecord_(payload.contentId, {
+  advanceWorkflow_(payload.contentId, 'submitRawFootage', payload, {
+    updates: {
     'Raw Footage Folder URL': payload.rawFootageUrl,
     'Editor Notes': payload.filmingNotes || '',
-    'Current Owner': 'Stephanie',
-    Status: 'Filming Complete',
     'Stage Completed Timestamp': new Date(),
-  }, 'SUBMIT_RAW_FOOTAGE', payload.filmingNotes || '', payload.rawFootageUrl);
+    },
+    logAction: 'SUBMIT_RAW_FOOTAGE',
+    notes: payload.filmingNotes || '',
+    urlSubmitted: payload.rawFootageUrl,
+  });
 
   return successResult_(`Raw footage submitted for Content #${payload.contentId}.`);
 }
 
 function startEditing_(payload) {
-  requireFields_(payload, ['contentId']);
   if (payload.confirmStart !== 'true') {
     throw new Error('Confirm editing has started before submitting.');
   }
 
   const record = getContentRecordById_(payload.contentId);
-  const nextStatus = record.status === 'Revision Requested' ? 'Editing V2+' : 'Editing V1';
-  updateContentRecord_(payload.contentId, {
-    Status: nextStatus,
-    'Current Owner': 'Stephanie',
+  const transitionAction = record.status === 'Revision Requested' ? 'startEditingRevision' : 'startEditingV1';
+  const result = advanceWorkflow_(payload.contentId, transitionAction, payload, {
+    updates: {
     'Stage Started Timestamp': new Date(),
-  }, 'START_EDITING', '', '');
+    },
+    logAction: 'START_EDITING',
+  });
 
-  return successResult_(`Content #${payload.contentId} moved to ${nextStatus}.`);
+  return successResult_(`Content #${payload.contentId} moved to ${result.newStatus}.`);
 }
 
 function submitEditedVersion_(payload) {
-  requireFields_(payload, ['contentId', 'editedVideoUrl']);
   const record = getContentRecordById_(payload.contentId);
   const version = getNextEditVersion_(record);
   const urlHeader = version === 1 ? 'Edited V1 URL' : version === 2 ? 'Edited V2 URL' : 'Edited V3 URL';
 
-  updateContentRecord_(payload.contentId, {
+  advanceWorkflow_(payload.contentId, 'submitEditedVersion', payload, {
+    updates: {
     [urlHeader]: payload.editedVideoUrl,
     'Editor Notes': payload.editorNotes || '',
-    'Current Owner': 'Abby',
-    Status: 'Ready for Abby Review',
     'Stage Completed Timestamp': new Date(),
-  }, 'SUBMIT_EDITED_VERSION', payload.editorNotes || '', payload.editedVideoUrl);
+    },
+    logAction: 'SUBMIT_EDITED_VERSION',
+    notes: payload.editorNotes || '',
+    urlSubmitted: payload.editedVideoUrl,
+  });
 
   appendRevisionLog_(payload.contentId, version, getEffectiveUserEmail_(), payload.editedVideoUrl, '', 'Submitted', payload.editorNotes || '');
   return successResult_(`Edited version V${version} submitted for Content #${payload.contentId}.`);
 }
 
 function reviewApproveContent_(payload) {
-  requireFields_(payload, ['contentId', 'decision']);
   const decision = payload.decision;
   const record = getContentRecordById_(payload.contentId);
 
   if (decision === 'Request Revision') {
-    requireFields_(payload, ['feedbackNotes']);
     const nextRevisionCount = Number(record['Revision Count'] || 0) + 1;
-    updateContentRecord_(payload.contentId, {
-      Status: 'Revision Requested',
-      'Current Owner': 'Stephanie',
+    advanceWorkflow_(payload.contentId, 'requestRevision', payload, {
+      updates: {
       'Revision Count': nextRevisionCount,
       'Abby Feedback': payload.feedbackNotes,
       'Stage Completed Timestamp': new Date(),
-    }, 'REQUEST_REVISION', payload.feedbackNotes, '');
+      },
+      logAction: 'REQUEST_REVISION',
+      notes: payload.feedbackNotes,
+    });
     appendRevisionLog_(payload.contentId, nextRevisionCount + 1, getEffectiveUserEmail_(), '', payload.feedbackNotes, 'Revision Requested', '');
     return successResult_(`Revision requested for Content #${payload.contentId}.`);
   }
@@ -661,19 +745,21 @@ function reviewApproveContent_(payload) {
     throw new Error('Approved video URL is required if no edited version URL exists on the content row.');
   }
 
-  updateContentRecord_(payload.contentId, {
-    Status: 'Approved',
-    'Current Owner': 'Abby',
+  advanceWorkflow_(payload.contentId, 'approveContent', payload, {
+    updates: {
     'Final Approved Video URL': approvedUrl,
     'Stage Completed Timestamp': new Date(),
-  }, 'APPROVE_CONTENT', '', approvedUrl);
+    },
+    logAction: 'APPROVE_CONTENT',
+    urlSubmitted: approvedUrl,
+  });
   appendRevisionLog_(payload.contentId, getLatestEditVersion_(record), getEffectiveUserEmail_(), approvedUrl, '', 'Approved', '');
   return successResult_(`Content #${payload.contentId} approved.`);
 }
 
 function scheduleContent_(payload) {
-  requireFields_(payload, ['contentId', 'platforms', 'postingDate', 'postingTime', 'caption', 'cta', 'hashtags']);
-  updateContentRecord_(payload.contentId, {
+  advanceWorkflow_(payload.contentId, 'scheduleContent', payload, {
+    updates: {
     'Platform(s)': payload.platforms,
     'Posting Date': payload.postingDate,
     Time: payload.postingTime,
@@ -681,23 +767,25 @@ function scheduleContent_(payload) {
     CTA: payload.cta,
     Hashtags: payload.hashtags,
     'Scheduled By': getEffectiveUserEmail_(),
-    'Current Owner': 'Stephanie',
-    Status: 'Scheduled',
     'Stage Completed Timestamp': new Date(),
-  }, 'SCHEDULE_CONTENT', '', '');
+    },
+    logAction: 'SCHEDULE_CONTENT',
+  });
 
   return successResult_(`Content #${payload.contentId} scheduled.`);
 }
 
 function markContentPosted_(payload) {
-  requireFields_(payload, ['contentId', 'platformPosted']);
-  updateContentRecord_(payload.contentId, {
-    Status: 'Posted',
-    'Current Owner': '',
+  advanceWorkflow_(payload.contentId, 'markPosted', payload, {
+    updates: {
     'Posted URL': payload.livePostUrl || '',
     'Posted Timestamp': new Date(),
     'Stage Completed Timestamp': new Date(),
-  }, 'MARK_POSTED', payload.postedNotes || `Posted to ${payload.platformPosted}.`, payload.livePostUrl || '');
+    },
+    logAction: 'MARK_POSTED',
+    notes: payload.postedNotes || `Posted to ${payload.platformPosted}.`,
+    urlSubmitted: payload.livePostUrl || '',
+  });
 
   return successResult_(`Content #${payload.contentId} marked as posted.`);
 }
@@ -729,8 +817,12 @@ function getWorkflowOptions_(spreadsheet) {
   };
 }
 
-function buildWorkflowDefaults_(action, selectedContent, selectedIdea) {
+function buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillContentId) {
   const defaults = {};
+
+  if (prefillContentId) {
+    defaults.contentId = prefillContentId;
+  }
 
   if (selectedContent && selectedContent.contentId) {
     defaults.contentId = selectedContent.contentId;
@@ -739,6 +831,7 @@ function buildWorkflowDefaults_(action, selectedContent, selectedIdea) {
     defaults.hashtags = selectedContent.Hashtags || '';
     defaults.postingDate = selectedContent['Posting Date'] || '';
     defaults.postingTime = selectedContent.Time || '';
+    defaults.approvedVideoUrl = selectedContent['Final Approved Video URL'] || selectedContent['Edited V3 URL'] || selectedContent['Edited V2 URL'] || selectedContent['Edited V1 URL'] || '';
   }
 
   if (action === 'promoteIdea' && selectedIdea) {
@@ -814,6 +907,114 @@ function updateContentRecord_(contentId, updates, action, notes, urlSubmitted) {
 
   writeContentValues_(sheet, row, columnMap, finalUpdates);
   appendActivityLog_(contentId, action, oldStatus, finalUpdates.Status || oldStatus, notes || '', urlSubmitted || '');
+}
+
+function advanceWorkflow_(contentId, action, payload, options) {
+  options = options || {};
+  const record = getContentRecordById_(contentId);
+  const rule = assertAllowedTransition_(record, action);
+  validateRequiredFields_(payload, rule.requiredFields || []);
+
+  const extraUpdates = typeof options.updates === 'function'
+    ? options.updates(record, payload)
+    : options.updates || {};
+  const newOwner = typeof rule.owner === 'function' ? rule.owner(payload, record) : rule.owner;
+  const updates = Object.assign({}, extraUpdates, {
+    Status: rule.to,
+    'Current Owner': newOwner || '',
+  });
+
+  updateContentRecord_(
+    contentId,
+    updates,
+    options.logAction || action,
+    options.notes || '',
+    options.urlSubmitted || ''
+  );
+
+  return {
+    oldStatus: record.status,
+    newStatus: rule.to,
+    rule,
+  };
+}
+
+function getTransitionRule_(action, currentStatus) {
+  const rule = WORKFLOW_TRANSITIONS[action];
+  if (!rule || rule.from.indexOf(currentStatus) === -1) {
+    return null;
+  }
+  return rule;
+}
+
+function assertAllowedTransition_(record, action) {
+  const rule = getTransitionRule_(action, record.status);
+  if (rule) {
+    return rule;
+  }
+
+  const configuredRule = WORKFLOW_TRANSITIONS[action];
+  const allowedStatuses = configuredRule ? configuredRule.from.join(', ') : 'none';
+  throw new Error(`Cannot run ${actionLabel_(action)} from status "${record.status || 'blank'}". Allowed statuses: ${allowedStatuses}.`);
+}
+
+function validateRequiredFields_(payload, requiredFields) {
+  requireFields_(payload, requiredFields);
+}
+
+function getAvailableActionsForRecord_(record, userName) {
+  const isAdmin = userName === 'Admin' || userName === 'Vivianne';
+  const actionIds = [];
+
+  if ((isAdmin || userName === 'Abby') && record.status === 'Planned') {
+    actionIds.push('assignFilming');
+  }
+
+  if ((isAdmin || userName === 'Hillary' || userName === 'Tao') && record.status === 'Assigned to Film') {
+    if (isAdmin || String(record['Assigned Filmer(s)'] || '').indexOf(userName) !== -1) {
+      actionIds.push('submitRawFootage');
+    }
+  }
+
+  if ((isAdmin || userName === 'Stephanie') && (record.status === 'Filming Complete' || record.status === 'Revision Requested')) {
+    actionIds.push('startEditing');
+  }
+
+  if ((isAdmin || userName === 'Stephanie') && (record.status === 'Editing V1' || record.status === 'Editing V2+')) {
+    actionIds.push('submitEditedVersion');
+  }
+
+  if ((isAdmin || userName === 'Abby') && record.status === 'Ready for Abby Review') {
+    actionIds.push('reviewApprove');
+  }
+
+  if ((isAdmin || userName === 'Abby') && record.status === 'Approved') {
+    actionIds.push('scheduleContent');
+  }
+
+  if ((isAdmin || userName === 'Stephanie') && record.status === 'Scheduled') {
+    actionIds.push('markPosted');
+  }
+
+  if (isAdmin) {
+    actionIds.push('adminOverride');
+  }
+
+  return actionIds.map((action) => ({
+    action,
+    label: actionLabel_(action),
+  }));
+}
+
+function actionLabel_(action) {
+  if (WORKFLOW_TRANSITIONS[action]) {
+    return WORKFLOW_TRANSITIONS[action].label;
+  }
+  try {
+    return getWorkflowActionConfig_(action).title;
+  } catch (error) {
+    return action;
+  }
 }
 
 function writeContentValues_(sheet, row, columnMap, valuesByHeader) {

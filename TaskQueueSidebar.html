@@ -65,6 +65,18 @@
         line-height: 1.45;
       }
 
+      .task-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .task-actions button {
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+
       .status {
         margin: 10px 0;
         min-height: 18px;
@@ -126,8 +138,38 @@
               Film: ${escapeHtml(task['Filming Date'] || '')}<br>
               Post: ${escapeHtml(task['Posting Date'] || '')} ${escapeHtml(task.Time || '')}
             </div>
+            ${renderActions(task)}
           </div>
         `).join('');
+      }
+
+      function renderActions(task) {
+        const actions = task.availableActions || [];
+        if (!actions.length) {
+          return '';
+        }
+
+        return `
+          <div class="task-actions">
+            ${actions.map((item) => `
+              <button type="button" onclick="openTaskAction('${escapeAttr(item.action)}', '${escapeAttr(task.contentId)}')">
+                ${escapeHtml(item.label)}
+              </button>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function openTaskAction(action, contentId) {
+        setStatus('Opening action...', '');
+        google.script.run
+          .withSuccessHandler(() => {
+            setStatus('Action opened.', '');
+          })
+          .withFailureHandler((error) => {
+            setStatus(error && error.message ? error.message : String(error), 'error');
+          })
+          .openWorkflowDialogForTask(action, contentId);
       }
 
       function escapeHtml(value) {

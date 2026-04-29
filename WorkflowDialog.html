@@ -126,6 +126,7 @@
 
     <script>
       const action = '<?= action ?>';
+      const prefillContentId = '<?= prefillContentId ?>';
       let model = null;
 
       function setStatus(message, type) {
@@ -265,7 +266,7 @@
         .withFailureHandler((error) => {
           setStatus(error && error.message ? error.message : String(error), 'error');
         })
-        .getWorkflowDialogModel(action);
+        .getWorkflowDialogModel(action, prefillContentId);
     </script>
   </body>
 </html>
