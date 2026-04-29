@@ -601,7 +601,7 @@ function promoteIdeaToPlanning_(payload) {
   const spreadsheet = SpreadsheetApp.getActive();
   const ideaSheet = requireSheet_(spreadsheet, '3. Idea Brain Dump');
   const contentSheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
-  const columnMap = getHeaderMap_(contentSheet, PHASE1.rows.contentHeader);
+  const columnMap = ensureWorkflowColumns_(spreadsheet);
   const contentId = getNextContentId_(contentSheet, columnMap[PHASE1.coreHeaders.contentId]);
   const row = getNextContentRow_(contentSheet, columnMap[PHASE1.coreHeaders.contentId]);
   const status = payload.assignedFilmer && payload.filmingDate ? 'Assigned to Film' : 'Planned';
@@ -884,7 +884,7 @@ function getSelectedIdeaContext_(spreadsheet) {
 function getContentRecordById_(contentId) {
   const spreadsheet = SpreadsheetApp.getActive();
   const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
-  const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
+  const columnMap = ensureWorkflowColumns_(spreadsheet);
   const row = findContentRowById_(sheet, columnMap, contentId);
   const values = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
   return rowToContentRecord_(values, columnMap, row);
@@ -893,7 +893,7 @@ function getContentRecordById_(contentId) {
 function updateContentRecord_(contentId, updates, action, notes, urlSubmitted) {
   const spreadsheet = SpreadsheetApp.getActive();
   const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
-  const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
+  const columnMap = ensureWorkflowColumns_(spreadsheet);
   const row = findContentRowById_(sheet, columnMap, contentId);
   const oldStatus = sheet.getRange(row, columnMap[PHASE1.coreHeaders.status]).getDisplayValue();
   const finalUpdates = Object.assign({}, updates, {
@@ -1018,11 +1018,17 @@ function actionLabel_(action) {
 }
 
 function writeContentValues_(sheet, row, columnMap, valuesByHeader) {
+  assertWritableHeaders_(columnMap, Object.keys(valuesByHeader));
   Object.keys(valuesByHeader).forEach((header) => {
-    if (columnMap[header]) {
-      sheet.getRange(row, columnMap[header]).setValue(valuesByHeader[header]);
-    }
+    sheet.getRange(row, columnMap[header]).setValue(valuesByHeader[header]);
   });
+}
+
+function assertWritableHeaders_(columnMap, headers) {
+  const missingHeaders = headers.filter((header) => !columnMap[header]);
+  if (missingHeaders.length) {
+    throw new Error(`Cannot update content row because these columns are missing from ${PHASE1.sheets.content}: ${missingHeaders.join(', ')}. Run setupPhase1DatabaseFoundation() and try again.`);
+  }
 }
 
 function rowToContentRecord_(rowValues, columnMap, rowNumber) {
