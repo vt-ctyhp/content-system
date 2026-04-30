@@ -3113,6 +3113,7 @@ function styleContentPlanningSheet_(sheet) {
     .setBorder(true, true, true, true, true, true, c.rule, SpreadsheetApp.BorderStyle.SOLID);
   styleContentPlanningHelperColumns_(sheet);
   applyContentPlanningColumnWidths_(sheet);
+  applyContentPlanningOperationalFormatting_(sheet);
   sheet.setFrozenRows(PHASE1.rows.contentHeader);
   sheet.setFrozenColumns(10);
   sheet.setHiddenGridlines(true);
@@ -3165,6 +3166,22 @@ function applyContentPlanningColumnWidths_(sheet) {
   const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
   Object.keys(columnMap).forEach((header) => {
     sheet.setColumnWidth(columnMap[header], widths[header] || 120);
+  });
+}
+
+function applyContentPlanningOperationalFormatting_(sheet) {
+  const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
+  const rowCount = Math.max(sheet.getMaxRows() - PHASE1.rows.contentDataStart + 1, 1);
+
+  if (columnMap.Time) {
+    sheet.getRange(PHASE1.rows.contentDataStart, columnMap.Time, rowCount, 1)
+      .setNumberFormat('h:mm AM/PM');
+  }
+
+  ['Dual Brand Set', 'Paired Content #', 'Original / Companion'].forEach((header) => {
+    if (columnMap[header]) {
+      sheet.hideColumns(columnMap[header]);
+    }
   });
 }
 
