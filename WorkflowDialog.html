@@ -150,6 +150,8 @@
           if (model.selectedIdea.ideaTitle) lines.push(model.selectedIdea.ideaTitle);
         }
 
+        (model.contextLines || []).forEach((line) => lines.push(line));
+
         if (!lines.length) {
           context.style.display = 'none';
           return;

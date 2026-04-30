@@ -372,6 +372,7 @@ function getWorkflowDialogModel(action, prefillContentId) {
     options,
     selectedContent,
     selectedIdea,
+    contextLines: buildWorkflowContextLines_(action, selectedContent),
     defaults: buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillContentId),
   };
 }
@@ -427,12 +428,18 @@ function getTaskQueue(userName) {
   const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
   const values = sheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, sheet.getLastColumn()).getDisplayValues();
   const normalizedUser = String(userName || '').trim();
+  const revisionHistoryMap = getRevisionHistoryMap_();
 
   return values
     .map((row, index) => rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index))
     .filter((record) => record.contentId && record.status !== 'Posted')
     .filter((record) => taskBelongsInQueue_(record, normalizedUser))
     .map((record) => {
+      const revisionHistory = revisionHistoryMap[normalizeContentId_(record.contentId)] || [];
+      record.latestVersion = getCurrentEditVersion_(record, revisionHistory);
+      record.latestEditedUrl = getLatestEditedUrl_(record, revisionHistory);
+      record.abbyFeedback = record['Abby Feedback'] || '';
+      record.editorNotes = record['Editor Notes'] || '';
       record.availableActions = getAvailableActionsForRecord_(record, normalizedUser);
       return record;
     })
@@ -689,7 +696,7 @@ function startEditing_(payload) {
   const transitionAction = record.status === 'Revision Requested' ? 'startEditingRevision' : 'startEditingV1';
   const result = advanceWorkflow_(payload.contentId, transitionAction, payload, {
     updates: {
-    'Stage Started Timestamp': new Date(),
+      'Stage Started Timestamp': new Date(),
     },
     logAction: 'START_EDITING',
   });
@@ -699,14 +706,16 @@ function startEditing_(payload) {
 
 function submitEditedVersion_(payload) {
   const record = getContentRecordById_(payload.contentId);
-  const version = getNextEditVersion_(record);
-  const urlHeader = version === 1 ? 'Edited V1 URL' : version === 2 ? 'Edited V2 URL' : 'Edited V3 URL';
+  const revisionHistory = getRevisionHistory_(payload.contentId);
+  const version = getNextSubmissionVersion_(record, revisionHistory);
+  const urlHeader = getVisibleEditUrlHeader_(version);
 
   advanceWorkflow_(payload.contentId, 'submitEditedVersion', payload, {
     updates: {
-    [urlHeader]: payload.editedVideoUrl,
-    'Editor Notes': payload.editorNotes || '',
-    'Stage Completed Timestamp': new Date(),
+      [urlHeader]: payload.editedVideoUrl,
+      'Revision Count': version,
+      'Editor Notes': payload.editorNotes || '',
+      'Stage Completed Timestamp': new Date(),
     },
     logAction: 'SUBMIT_EDITED_VERSION',
     notes: payload.editorNotes || '',
@@ -722,17 +731,18 @@ function reviewApproveContent_(payload) {
   const record = getContentRecordById_(payload.contentId);
 
   if (decision === 'Request Revision') {
-    const nextRevisionCount = Number(record['Revision Count'] || 0) + 1;
+    const revisionHistory = getRevisionHistory_(payload.contentId);
+    const version = Math.max(Number(getCurrentEditVersion_(record, revisionHistory)) + 1, 2);
     advanceWorkflow_(payload.contentId, 'requestRevision', payload, {
       updates: {
-      'Revision Count': nextRevisionCount,
-      'Abby Feedback': payload.feedbackNotes,
-      'Stage Completed Timestamp': new Date(),
+        'Revision Count': version,
+        'Abby Feedback': payload.feedbackNotes,
+        'Stage Completed Timestamp': new Date(),
       },
       logAction: 'REQUEST_REVISION',
       notes: payload.feedbackNotes,
     });
-    appendRevisionLog_(payload.contentId, nextRevisionCount + 1, getEffectiveUserEmail_(), '', payload.feedbackNotes, 'Revision Requested', '');
+    appendRevisionLog_(payload.contentId, version, getEffectiveUserEmail_(), getLatestEditedUrl_(record, revisionHistory), payload.feedbackNotes, 'Revision Requested', '');
     return successResult_(`Revision requested for Content #${payload.contentId}.`);
   }
 
@@ -740,20 +750,22 @@ function reviewApproveContent_(payload) {
     throw new Error(`Unsupported review decision: ${decision}`);
   }
 
-  const approvedUrl = payload.approvedVideoUrl || record['Edited V3 URL'] || record['Edited V2 URL'] || record['Edited V1 URL'];
+  const revisionHistory = getRevisionHistory_(payload.contentId);
+  const approvedUrl = payload.approvedVideoUrl || getLatestEditedUrl_(record, revisionHistory);
   if (!approvedUrl) {
     throw new Error('Approved video URL is required if no edited version URL exists on the content row.');
   }
 
   advanceWorkflow_(payload.contentId, 'approveContent', payload, {
     updates: {
-    'Final Approved Video URL': approvedUrl,
-    'Stage Completed Timestamp': new Date(),
+      'Final Approved Video URL': approvedUrl,
+      'Revision Count': getCurrentEditVersion_(record, revisionHistory) || '',
+      'Stage Completed Timestamp': new Date(),
     },
     logAction: 'APPROVE_CONTENT',
     urlSubmitted: approvedUrl,
   });
-  appendRevisionLog_(payload.contentId, getLatestEditVersion_(record), getEffectiveUserEmail_(), approvedUrl, '', 'Approved', '');
+  appendRevisionLog_(payload.contentId, getCurrentEditVersion_(record, revisionHistory), getEffectiveUserEmail_(), approvedUrl, '', 'Approved', '');
   return successResult_(`Content #${payload.contentId} approved.`);
 }
 
@@ -825,13 +837,14 @@ function buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillCo
   }
 
   if (selectedContent && selectedContent.contentId) {
+    const revisionHistory = getRevisionHistory_(selectedContent.contentId);
     defaults.contentId = selectedContent.contentId;
     defaults.caption = selectedContent.Caption || '';
     defaults.cta = selectedContent.CTA || '';
     defaults.hashtags = selectedContent.Hashtags || '';
     defaults.postingDate = selectedContent['Posting Date'] || '';
     defaults.postingTime = selectedContent.Time || '';
-    defaults.approvedVideoUrl = selectedContent['Final Approved Video URL'] || selectedContent['Edited V3 URL'] || selectedContent['Edited V2 URL'] || selectedContent['Edited V1 URL'] || '';
+    defaults.approvedVideoUrl = selectedContent['Final Approved Video URL'] || getLatestEditedUrl_(selectedContent, revisionHistory);
   }
 
   if (action === 'promoteIdea' && selectedIdea) {
@@ -845,6 +858,39 @@ function buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillCo
   }
 
   return defaults;
+}
+
+function buildWorkflowContextLines_(action, selectedContent) {
+  if (!selectedContent || !selectedContent.contentId) {
+    return [];
+  }
+
+  const revisionHistory = getRevisionHistory_(selectedContent.contentId);
+  const latestVersion = getCurrentEditVersion_(selectedContent, revisionHistory);
+  const nextVersion = getNextSubmissionVersion_(selectedContent, revisionHistory);
+  const latestEditedUrl = getLatestEditedUrl_(selectedContent, revisionHistory);
+  const lines = [];
+
+  if (action === 'submitEditedVersion') {
+    lines.push(`Submitting V${nextVersion}`);
+    if (selectedContent['Abby Feedback']) {
+      lines.push(`Latest Abby feedback: ${selectedContent['Abby Feedback']}`);
+    }
+  }
+
+  if (action === 'reviewApprove') {
+    if (latestVersion) {
+      lines.push(`Reviewing V${latestVersion}`);
+    }
+    if (latestEditedUrl) {
+      lines.push(`Latest edited URL: ${latestEditedUrl}`);
+    }
+    if (selectedContent['Editor Notes']) {
+      lines.push(`Editor notes: ${selectedContent['Editor Notes']}`);
+    }
+  }
+
+  return lines;
 }
 
 function getSelectedContentContext_(spreadsheet) {
@@ -1101,7 +1147,19 @@ function appendActivityLog_(contentId, action, oldStatus, newStatus, notes, urlS
 
 function appendRevisionLog_(contentId, versionNumber, submittedBy, editedFileUrl, feedbackFromAbby, decision, notes) {
   const revisionLog = ensureRevisionLog_(SpreadsheetApp.getActive());
-  appendRows_(revisionLog, [[
+  appendRows_(revisionLog, [buildRevisionLogRow_(
+    contentId,
+    versionNumber,
+    submittedBy,
+    editedFileUrl,
+    feedbackFromAbby,
+    decision,
+    notes
+  )]);
+}
+
+function buildRevisionLogRow_(contentId, versionNumber, submittedBy, editedFileUrl, feedbackFromAbby, decision, notes) {
+  return [
     new Date(),
     contentId || '',
     versionNumber || '',
@@ -1110,7 +1168,104 @@ function appendRevisionLog_(contentId, versionNumber, submittedBy, editedFileUrl
     feedbackFromAbby || '',
     decision || '',
     notes || '',
-  ]]);
+  ];
+}
+
+function getRevisionHistory_(contentId) {
+  return getRevisionHistoryMap_()[normalizeContentId_(contentId)] || [];
+}
+
+function getRevisionHistoryMap_() {
+  const revisionLog = ensureRevisionLog_(SpreadsheetApp.getActive());
+  const lastRow = revisionLog.getLastRow();
+
+  if (lastRow <= PHASE1.rows.logHeader) {
+    return {};
+  }
+
+  return revisionLog
+    .getRange(PHASE1.rows.logHeader + 1, 1, lastRow - PHASE1.rows.logHeader, PHASE1.revisionLogHeaders.length)
+    .getDisplayValues()
+    .map((row) => ({
+      timestamp: row[0],
+      contentId: row[1],
+      versionNumber: Number(row[2]) || '',
+      submittedBy: row[3],
+      editedFileUrl: row[4],
+      feedbackFromAbby: row[5],
+      decision: row[6],
+      notes: row[7],
+    }))
+    .reduce((historyMap, entry) => {
+      const normalizedId = normalizeContentId_(entry.contentId);
+      if (!normalizedId) {
+        return historyMap;
+      }
+      if (!historyMap[normalizedId]) {
+        historyMap[normalizedId] = [];
+      }
+      historyMap[normalizedId].push(entry);
+      return historyMap;
+    }, {});
+}
+
+function getLatestRevisionEntry_(contentId) {
+  const history = getRevisionHistory_(contentId);
+  return history.length ? history[history.length - 1] : null;
+}
+
+function getCurrentEditVersion_(record, revisionHistory) {
+  const versions = (revisionHistory || [])
+    .map((entry) => Number(entry.versionNumber) || 0)
+    .filter(Boolean);
+  const visibleVersion = getLatestEditVersion_(record);
+  const revisionCount = Number(record['Revision Count']) || 0;
+
+  return Math.max.apply(null, [visibleVersion, revisionCount].concat(versions, [0])) || '';
+}
+
+function getNextSubmissionVersion_(record, revisionHistory) {
+  const currentVersion = getCurrentEditVersion_(record, revisionHistory);
+  const latestEntry = getLatestRevisionEntryFromHistory_(revisionHistory);
+
+  if (record.status === 'Editing V1' && !currentVersion) {
+    return 1;
+  }
+
+  if (record.status === 'Editing V2+' && latestEntry && latestEntry.decision === 'Revision Requested' && latestEntry.versionNumber) {
+    return latestEntry.versionNumber;
+  }
+
+  if (record.status === 'Editing V2+') {
+    return Math.max(Number(currentVersion) + 1, 2);
+  }
+
+  return currentVersion || 1;
+}
+
+function getLatestEditedUrl_(record, revisionHistory) {
+  const submittedEntries = (revisionHistory || [])
+    .filter((entry) => entry.decision === 'Submitted' && entry.editedFileUrl);
+
+  if (submittedEntries.length) {
+    return submittedEntries[submittedEntries.length - 1].editedFileUrl;
+  }
+
+  return record['Edited V3 URL'] || record['Edited V2 URL'] || record['Edited V1 URL'] || '';
+}
+
+function getLatestRevisionEntryFromHistory_(revisionHistory) {
+  return revisionHistory && revisionHistory.length ? revisionHistory[revisionHistory.length - 1] : null;
+}
+
+function getVisibleEditUrlHeader_(version) {
+  if (version === 1) {
+    return 'Edited V1 URL';
+  }
+  if (version === 2) {
+    return 'Edited V2 URL';
+  }
+  return 'Edited V3 URL';
 }
 
 function getNextEditVersion_(record) {

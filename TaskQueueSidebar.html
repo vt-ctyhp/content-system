@@ -137,10 +137,20 @@
               Filmer: ${escapeHtml(task['Assigned Filmer(s)'] || '')}<br>
               Film: ${escapeHtml(task['Filming Date'] || '')}<br>
               Post: ${escapeHtml(task['Posting Date'] || '')} ${escapeHtml(task.Time || '')}
+              ${renderRevisionMeta(task)}
             </div>
             ${renderActions(task)}
           </div>
         `).join('');
+      }
+
+      function renderRevisionMeta(task) {
+        const lines = [];
+        if (task.latestVersion) lines.push(`Version: V${escapeHtml(task.latestVersion)}`);
+        if (task.latestEditedUrl) lines.push(`Latest edit: ${escapeHtml(task.latestEditedUrl)}`);
+        if (task.status === 'Revision Requested' && task.abbyFeedback) lines.push(`Abby feedback: ${escapeHtml(task.abbyFeedback)}`);
+        if (task.editorNotes) lines.push(`Editor notes: ${escapeHtml(task.editorNotes)}`);
+        return lines.length ? `<br>${lines.join('<br>')}` : '';
       }
 
       function renderActions(task) {
