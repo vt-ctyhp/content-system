@@ -549,7 +549,14 @@ function openAddNewIdeaDialog() {
 }
 
 function openPromoteIdeaDialog() {
-  showWorkflowDialog_('promoteIdea');
+  openPromoteIdeaSidebar();
+}
+
+function openPromoteIdeaSidebar() {
+  const template = HtmlService.createTemplateFromFile('PromoteIdeaSidebar');
+  const html = template.evaluate()
+    .setTitle('Promote Idea to Planning');
+  SpreadsheetApp.getUi().showSidebar(html);
 }
 
 function openAssignFilmingTaskDialog() {
@@ -1135,8 +1142,8 @@ function getWorkflowActionConfig_(action) {
         selectField_('format', 'Format', 'formats', true),
         selectField_('goal', 'Goal', 'goals', false),
         textField_('ideaTitle', 'Idea / title', true),
-        textField_('subject', 'Subject', false),
-        textareaField_('momentAction', 'Moment / action', false),
+        selectField_('subject', 'Subject', 'subjects', false),
+        selectField_('momentAction', 'Moment / action', 'momentActions', false),
         textareaField_('shotList', 'Shot list', false),
         textareaField_('filmingInstructions', 'Filming instructions', false),
         selectField_('assignedFilmer', 'Assigned filmer(s)', 'filmerAssignments', false),
@@ -1628,6 +1635,7 @@ function buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillCo
     defaults.goal = selectedIdea.goal || '';
     defaults.ideaTitle = selectedIdea.ideaTitle || '';
     defaults.inspirationLink = selectedIdea.inspirationLink || '';
+    defaults.subject = selectedIdea.subject || '';
     defaults.momentAction = selectedIdea.momentAction || '';
   }
 

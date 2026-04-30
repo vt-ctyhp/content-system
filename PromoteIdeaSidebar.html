@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #F7F1EB;
+        --surface: #FBF7F1;
+        --inset: #EFE8DD;
+        --dark: #2A2725;
+        --body: #4A4540;
+        --muted: #8A8178;
+        --rule: #D4CFC4;
+        --pink: #E91D79;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: var(--bg);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 12px;
+        color: var(--body);
+        min-height: 100vh;
+      }
+
+      .masthead {
+        background: var(--dark);
+        padding: 14px 16px 12px;
+        border-bottom: 2px solid var(--pink);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .masthead-eyebrow {
+        font-family: 'DM Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      .masthead-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--bg);
+        line-height: 1;
+      }
+
+      .masthead-title span { color: var(--pink); }
+
+      .context {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--rule);
+        background: var(--inset);
+        font-family: 'DM Mono', monospace;
+        font-size: 10px;
+        line-height: 1.55;
+        color: var(--body);
+      }
+
+      .context-label {
+        font-size: 8px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--pink);
+        margin-bottom: 3px;
+      }
+
+      .toolbar {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--rule);
+        background: var(--surface);
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        font-family: 'DM Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 7px 10px;
+        border: 1px solid var(--rule);
+        background: var(--surface);
+        color: var(--body);
+        cursor: pointer;
+        border-radius: 0;
+      }
+
+      button:hover:not(:disabled) {
+        border-color: var(--muted);
+        background: var(--inset);
+      }
+
+      button.primary {
+        background: var(--dark);
+        border-color: var(--dark);
+        color: var(--bg);
+      }
+
+      button.primary:hover:not(:disabled) {
+        background: var(--pink);
+        border-color: var(--pink);
+      }
+
+      button:disabled {
+        cursor: default;
+        opacity: 0.45;
+      }
+
+      .scroll {
+        padding: 14px 16px 84px;
+      }
+
+      form {
+        display: grid;
+        gap: 12px;
+      }
+
+      .section {
+        display: grid;
+        gap: 9px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 2px;
+      }
+
+      .section-head:first-child { margin-top: 0; }
+
+      .section-label {
+        font-family: 'DM Mono', monospace;
+        font-size: 8px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .section-line {
+        flex: 1;
+        height: 1px;
+        background: var(--rule);
+      }
+
+      .field {
+        display: grid;
+        gap: 4px;
+      }
+
+      .field.required {
+        border-left: 2px solid rgba(233, 29, 121, 0.5);
+        padding-left: 8px;
+      }
+
+      label {
+        font-family: 'DM Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .required-mark { color: var(--pink); }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 12px;
+        color: var(--dark);
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-bottom-color: var(--muted);
+        padding: 7px 9px;
+        border-radius: 0;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--pink);
+        background: #fff;
+      }
+
+      select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A8178' stroke-width='1.5' stroke-linecap='square'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        padding-right: 24px;
+      }
+
+      textarea {
+        min-height: 72px;
+        resize: vertical;
+        line-height: 1.45;
+      }
+
+      .status {
+        padding: 8px 16px;
+        font-family: 'DM Mono', monospace;
+        font-size: 10px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        border-top: 1px solid var(--rule);
+        background: var(--surface);
+        min-height: 32px;
+      }
+
+      .status.error { color: var(--pink); }
+      .status.success { color: #2A6B3C; }
+
+      .footer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 10px 16px;
+        background: var(--surface);
+        border-top: 1px solid var(--rule);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .footer .status {
+        flex: 1;
+        padding: 0;
+        border: none;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="masthead">
+      <div class="masthead-eyebrow">Content Operations</div>
+      <div class="masthead-title">Promote<span>.</span>Idea</div>
+    </div>
+
+    <div id="context" class="context">
+      <div class="context-label">Context</div>
+      Loading selected idea...
+    </div>
+
+    <div class="toolbar">
+      <button type="button" onclick="loadModel()">Refresh Selected Row</button>
+    </div>
+
+    <div class="scroll">
+      <form id="form"></form>
+    </div>
+
+    <div class="footer">
+      <div id="status" class="status">Loading...</div>
+      <button class="primary" id="submit" type="submit" form="form">Promote</button>
+    </div>
+
+    <script>
+      const action = 'promoteIdea';
+      let model = null;
+
+      const sections = [
+        {
+          label: 'Idea Source',
+          fields: ['ideaRow', 'brandSet', 'contentPillar', 'format', 'goal', 'ideaTitle', 'subject', 'momentAction'],
+        },
+        {
+          label: 'Brand Variants',
+          fields: ['sharedShootNotes', 'hpBrandAngle', 'vvsBrandAngle', 'hpVariantStrategy', 'vvsVariantStrategy'],
+        },
+        {
+          label: 'Filming Plan',
+          fields: ['shotList', 'filmingInstructions', 'assignedFilmer', 'filmingDate'],
+        },
+        {
+          label: 'Editing',
+          fields: ['editingBrief', 'priority'],
+        },
+      ];
+
+      function setStatus(message, type) {
+        const status = document.getElementById('status');
+        status.textContent = message || '';
+        status.className = `status ${type || ''}`;
+      }
+
+      function setBusy(isBusy) {
+        document.getElementById('submit').disabled = isBusy;
+      }
+
+      function renderContext() {
+        const lines = [];
+        if (model.selectedIdea && model.selectedIdea.row) {
+          lines.push(`Selected idea row: ${model.selectedIdea.row}`);
+          if (model.selectedIdea.ideaTitle) lines.push(model.selectedIdea.ideaTitle);
+          if (model.selectedIdea.contentPillar) lines.push(`Pillar: ${model.selectedIdea.contentPillar}`);
+        } else {
+          lines.push('Select a row in 3. Idea Brain Dump, then click Refresh Selected Row.');
+        }
+        const context = document.getElementById('context');
+        context.innerHTML = '<div class="context-label">Context</div>' + lines.map(escapeHtml).join('<br>');
+      }
+
+      function renderField(field) {
+        const value = model.defaults[field.name] || '';
+        const required = field.required ? ' required' : '';
+        const requiredMark = field.required ? ' <span class="required-mark">*</span>' : '';
+        const wrapperClass = `field${field.required ? ' required' : ''}`;
+
+        if (field.type === 'textarea') {
+          return `
+            <div class="${wrapperClass}">
+              <label for="${field.name}">${escapeHtml(field.label)}${requiredMark}</label>
+              <textarea id="${field.name}" name="${field.name}"${required}>${escapeHtml(value)}</textarea>
+            </div>
+          `;
+        }
+
+        if (field.type === 'select') {
+          const options = model.options[field.optionsKey] || [];
+          const optionHtml = ['<option value=""></option>'].concat(options.map((option) => {
+            const selected = String(option) === String(value) ? ' selected' : '';
+            return `<option value="${escapeAttr(option)}"${selected}>${escapeHtml(option)}</option>`;
+          })).join('');
+          return `
+            <div class="${wrapperClass}">
+              <label for="${field.name}">${escapeHtml(field.label)}${requiredMark}</label>
+              <select id="${field.name}" name="${field.name}"${required}>${optionHtml}</select>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="${wrapperClass}">
+            <label for="${field.name}">${escapeHtml(field.label)}${requiredMark}</label>
+            <input id="${field.name}" type="${field.type}" name="${field.name}" value="${escapeAttr(value)}"${required}>
+          </div>
+        `;
+      }
+
+      function renderForm() {
+        renderContext();
+        const fieldsByName = model.fields.reduce((map, field) => {
+          map[field.name] = field;
+          return map;
+        }, {});
+
+        document.getElementById('form').innerHTML = sections.map((section) => {
+          const fields = section.fields.map((name) => fieldsByName[name]).filter(Boolean);
+          if (!fields.length) return '';
+          return `
+            <div class="section">
+              <div class="section-head">
+                <div class="section-label">${escapeHtml(section.label)}</div>
+                <div class="section-line"></div>
+              </div>
+              ${fields.map(renderField).join('')}
+            </div>
+          `;
+        }).join('');
+      }
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        if (!model) return;
+
+        const form = event.currentTarget;
+        const payload = {};
+        model.fields.forEach((field) => {
+          const input = form.elements[field.name];
+          payload[field.name] = input ? input.value : '';
+        });
+
+        setBusy(true);
+        setStatus('Promoting idea...', '');
+        google.script.run
+          .withSuccessHandler((result) => {
+            setBusy(false);
+            setStatus(result && result.message ? result.message : 'Promoted.', 'success');
+            loadModel();
+          })
+          .withFailureHandler((error) => {
+            setBusy(false);
+            setStatus(error && error.message ? error.message : String(error), 'error');
+          })
+          .submitWorkflowDialog(action, payload);
+      }
+
+      function loadModel() {
+        setBusy(true);
+        setStatus('Loading selected idea...', '');
+        google.script.run
+          .withSuccessHandler((response) => {
+            model = response;
+            renderForm();
+            setBusy(false);
+            setStatus(model.selectedIdea && model.selectedIdea.row ? 'Ready.' : 'Select an idea row, then refresh.', '');
+          })
+          .withFailureHandler((error) => {
+            setBusy(false);
+            setStatus(error && error.message ? error.message : String(error), 'error');
+          })
+          .getWorkflowDialogModel(action, '');
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function escapeAttr(value) {
+        return escapeHtml(value).replace(/`/g, '&#96;');
+      }
+
+      document.getElementById('form').addEventListener('submit', handleSubmit);
+      loadModel();
+    </script>
+  </body>
+</html>
