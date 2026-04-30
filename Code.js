@@ -3109,9 +3109,15 @@ function getCalendarEventsByDate_(spreadsheet, columnMap, config) {
   }
 
   const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
-  const values = contentSheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, contentSheet.getLastColumn()).getValues();
+  const range = contentSheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, contentSheet.getLastColumn());
+  const values = range.getValues();
+  const displayValues = range.getDisplayValues();
   values
-    .map((row, index) => rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index))
+    .map((row, index) => {
+      const record = rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index);
+      applyCalendarDisplayFields_(record, displayValues[index], columnMap);
+      return record;
+    })
     .forEach((record) => {
       const date = parseSheetDate_(record[config.dateHeader]);
       if (!record.contentId || !date) {
@@ -3128,6 +3134,12 @@ function getCalendarEventsByDate_(spreadsheet, columnMap, config) {
     eventsByDate[key].sort();
   });
   return eventsByDate;
+}
+
+function applyCalendarDisplayFields_(record, displayRow, columnMap) {
+  if (columnMap.Time && displayRow) {
+    record.Time = displayRow[columnMap.Time - 1] || record.Time || '';
+  }
 }
 
 function buildCalendarEventText_(record, eventType) {
