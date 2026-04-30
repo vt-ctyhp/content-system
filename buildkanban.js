@@ -7,9 +7,8 @@
  *  pulling LIVE from "1A. Content Planning".
  *
  *  ── Column map on 1A ────────────────────────────────────────────────────────
- *   B = Content #     C = Content Pillar    D = Format
- *   F = Idea          I = Filming Date      J = Posting Date
- *   L = Status        (data rows: 6 → 1000)
+ *   Headers are read dynamically from row 5 of "1A. Content Planning"
+ *   after the master planning table rebuild.
  *
  *  ── Status columns (real values found in the sheet) ─────────────────────────
  *   Idea | Proposed | Draft | Filming | Editing | Revision 1 | Revision 2 | Posted
@@ -48,30 +47,21 @@ const CFG = {
   targetTab: '1D. Kanban View',
 
   // Data range on 1A
-  dataStart: 6,
+  dataStart: 7,
   dataEnd:   1000,
 
-  // Source columns
-  col: {
-    id:      'B',
-    pillar:  'C',
-    format:  'D',
-    idea:    'F',
-    filming: 'I',
-    posting: 'J',
-    status:  'L'
-  },
-
   // Real status values found in the sheet — edit freely to add/remove/reorder.
-  // Matching is CASE-INSENSITIVE so 'Idea' catches 'IDEA' etc.
+  // Matching is CASE-INSENSITIVE.
   statuses: [
-    'Idea',
-    'Proposed',
-    'Draft',
-    'Filming',
-    'Editing',
-    'Revision 1',
-    'Revision 2',
+    'Planned',
+    'Assigned to Film',
+    'Filming Complete',
+    'Editing V1',
+    'Ready for Brand Manager Review',
+    'Revision Requested',
+    'Editing V2+',
+    'Approved',
+    'Scheduled',
     'Posted'
   ],
 
@@ -101,6 +91,7 @@ function buildKanbanView() {
   if (!ss.getSheetByName(CFG.sourceTab)) {
     throw new Error('Source tab not found: ' + CFG.sourceTab);
   }
+  CFG.col = getKanbanColumnMap_(ss.getSheetByName(CFG.sourceTab));
 
   let sheet = ss.getSheetByName(CFG.targetTab);
   if (!sheet) sheet = ss.insertSheet(CFG.targetTab);
@@ -142,6 +133,31 @@ function colLetter(n) {
     n = Math.floor((n - 1) / 26);
   }
   return s;
+}
+
+function getKanbanColumnMap_(sourceSheet) {
+  const headerRow = 5;
+  const headers = sourceSheet.getRange(headerRow, 1, 1, sourceSheet.getLastColumn()).getDisplayValues()[0]
+    .reduce((map, header, index) => {
+      if (header) map[header] = colLetter(index + 1);
+      return map;
+    }, {});
+  const columnMap = {
+    id: headers['Content #'],
+    concept: headers['Concept ID'],
+    brand: headers.Brand,
+    pillar: headers['Content Pillar'],
+    format: headers.Format,
+    idea: headers.Idea,
+    filming: headers['Filming Date'],
+    posting: headers['Posting Date'],
+    status: headers.Status,
+  };
+  const missing = Object.keys(columnMap).filter((key) => !columnMap[key]);
+  if (missing.length) {
+    throw new Error('Kanban cannot find required 1A headers on row 5. Run setupPhase1DatabaseFoundation() first. Missing: ' + missing.join(', '));
+  }
+  return columnMap;
 }
 
 function _resizeSheet(sheet) {
@@ -259,7 +275,7 @@ function _buildFilterPanel(sheet) {
     SpreadsheetApp.newDataValidation()
       .requireValueInRange(
         SpreadsheetApp.getActive().getRange(
-          "'" + CFG.sourceTab + "'!$C$" + CFG.dataStart + ':$C$' + CFG.dataEnd), true)
+          "'" + CFG.sourceTab + "'!$" + CFG.col.pillar + "$" + CFG.dataStart + ':$' + CFG.col.pillar + '$' + CFG.dataEnd), true)
       .setAllowInvalid(true).build());
 
   // Format — live list from 1A col D
@@ -267,7 +283,7 @@ function _buildFilterPanel(sheet) {
     SpreadsheetApp.newDataValidation()
       .requireValueInRange(
         SpreadsheetApp.getActive().getRange(
-          "'" + CFG.sourceTab + "'!$D$" + CFG.dataStart + ':$D$' + CFG.dataEnd), true)
+          "'" + CFG.sourceTab + "'!$" + CFG.col.format + "$" + CFG.dataStart + ':$' + CFG.col.format + '$' + CFG.dataEnd), true)
       .setAllowInvalid(true).build());
 
   // Date validations
@@ -429,8 +445,8 @@ function _buildCountRow(sheet) {
 
 /**
  * Builds the SORT(FILTER(...)) expression for a given status.
- * Returns a matrix with 6 columns:
- *   1=ID, 2=Pillar, 3=Format, 4=Idea, 5=FilmingDate, 6=PostingDate
+ * Returns a matrix with 7 columns:
+ *   1=ID, 2=Pillar, 3=Format, 4=Idea, 5=FilmingDate, 6=PostingDate, 7=Brand
  * Each card formula wraps this in INDEX(..., rank, col).
  */
 function _matrix(status) {
@@ -449,6 +465,7 @@ function _matrix(status) {
   const refFilm= ref(col.filming);
   const refPost= ref(col.posting);
   const refSt  = ref(col.status);
+  const refBrand = ref(col.brand);
 
   const statusQ = status.replace(/"/g, '""');
 
@@ -466,7 +483,7 @@ function _matrix(status) {
   // safely so Sheets never sees mismatched condition lengths.
   const filterExpr =
     'FILTER(' +
-      '{' + refId + ',' + refPil + ',' + refFmt + ',' + refIdea + ',' + refFilm + ',' + refPost + '},' +
+      '{' + refId + ',' + refPil + ',' + refFmt + ',' + refIdea + ',' + refFilm + ',' + refPost + ',' + refBrand + '},' +
       '(' + refId + '<>"")' +
       '*(' + statusMatch + ')' +
       '*(' + postedGuard + ')' +
@@ -478,7 +495,7 @@ function _matrix(status) {
       '*(IF($A$20="",TRUE,IFERROR(' + refPost + '<=$A$20,TRUE)))' +
     ')';
 
-  const sortColMap = '{"Content #","Content Pillar","Format","Idea","Filming Date","Posting Date"}';
+  const sortColMap = '{"Content #","Content Pillar","Format","Idea","Filming Date","Posting Date","Brand"}';
 
   return 'SORT(' + filterExpr + ',MATCH($A$6,' + sortColMap + ',0),$A$8="Ascending")';
 }
@@ -500,11 +517,12 @@ function _formula(status, rank, kind) {
   const idea = idx(4);
   const film = idx(5);
   const post = idx(6);
+  const brand = idx(7);
 
   switch (kind) {
     case 'idFmt':
       // Show #ID + Format only when there is an ID
-      return '=IFERROR(IF(' + id + '="","","#"&' + id + '&"  "&' + fmt + '),"")';
+      return '=IFERROR(IF(' + id + '="","","#"&' + id + '&"  ["&' + brand + '&"]  "&' + fmt + '),"")';
 
     case 'post':
       return '=IFERROR(IF(' + id + '="","",IF(' + post + '="","—",TEXT(' + post + ',"mmm d"))),"")';

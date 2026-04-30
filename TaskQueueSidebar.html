@@ -362,7 +362,7 @@
           <div class="task">
             <div class="task-header">
               <div>
-                <div class="task-id">#${escapeHtml(task.contentId)}</div>
+                <div class="task-id">#${escapeHtml(task.displayContentId || task.contentId)}</div>
                 <div class="task-labels">${renderTaskLabels(task)}</div>
               </div>
               <div class="task-title">${escapeHtml(task.idea || '—')}</div>
@@ -383,8 +383,11 @@
           if (val) rows.push(`<div class="meta-key">${escapeHtml(key)}</div><div class="meta-val">${escapeHtml(val)}</div>`);
         };
         add('Status', task.status);
+        add('Concept', task['Concept ID']);
+        add('Brand', task.brandDisplay || task.Brand);
         add('Owner', task.currentOwner);
         add('Filmer', task['Assigned Filmer(s)']);
+        add('Brand angle', task.brandAngleDisplay || task['Brand Angle']);
         add('Film', task['Filming Date']);
         add('Post', task['Posting Date'] ? task['Posting Date'] + (task.Time ? ' ' + task.Time : '') : null);
         if (task.latestVersion) add('Version', 'V' + task.latestVersion);

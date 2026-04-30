@@ -253,6 +253,14 @@ function instructionsBuildContent_(sheet) {
       ]
     },
     {
+      title: 'Understand Concept ID and Content #',
+      body: [
+        'Concept ID groups related HP and VVS deliverables from the same creative concept or shoot.',
+        'Content # identifies the exact brand deliverable, such as 310-HP or 310-VVS.',
+        'Dual-brand plans share filming details, then separate into brand-specific editing, review, scheduling, and posting tasks.'
+      ]
+    },
+    {
       title: 'Check your assignments',
       body: [
         'Open My Task Queue and select your name.',
@@ -276,7 +284,9 @@ function instructionsBuildContent_(sheet) {
       body: [
         'Review 3. Idea Brain Dump.',
         'Select or enter the idea row, then use Content Workflow > Promote Idea to Planning.',
-        'Add enough planning detail for filming: subject, moment/action, shot list, instructions, filmer, date, editing brief, and priority when known.'
+        'Choose Brand set: HP + VVS, HP Only, or VVS Only. HP + VVS creates paired rows like 310-HP and 310-VVS with the same Concept ID.',
+        'Add HP/VVS brand angles and variant strategies when both brands are planned so the same shoot can produce visually distinct content.',
+        'Add enough planning detail for filming: subject, moment/action, shot list, instructions, shared shoot notes, filmer, date, editing brief, and priority when known.'
       ]
     },
     {
@@ -284,6 +294,7 @@ function instructionsBuildContent_(sheet) {
       body: [
         'For Planned items, use Assign Filming Task.',
         'Required: assigned filmer, filming date, shot list, and filming instructions.',
+        'Paired HP/VVS rows stay grouped as one filming assignment while they are Planned or Assigned to Film.',
         'The task moves to Assigned to Film and Current Owner becomes Hillary, Thao, or Hillary + Thao.'
       ]
     },
@@ -300,7 +311,8 @@ function instructionsBuildContent_(sheet) {
       body: [
         'For Approved items, use Schedule Content.',
         'Required: platform, posting date, time, caption, CTA, hashtags, and approved video URL.',
-        'Scheduling updates 1A, checks platform boxes when available, and sends the item to Estefanie to post.'
+        'Scheduling updates 1A, checks platform boxes when available, compares paired HP/VVS posting dates, and sends the item to Estefanie to post.',
+        'Spacing warnings are advisory. Aim for at least one week apart, and closer to two weeks when the calendar allows.'
       ]
     }
   ]);
@@ -318,8 +330,9 @@ function instructionsBuildContent_(sheet) {
       title: 'Submit raw footage',
       body: [
         'After filming, use Submit Raw Footage from the task card or menu.',
-        'Paste the Google Drive folder URL for the raw footage.',
-        'Confirm filming is complete. The item moves to Filming Complete and Current Owner becomes Estefanie.'
+        'For a dual-brand filming card, paste separate HP Raw Footage Folder URL and VVS Raw Footage Folder URL values.',
+        'For a single-brand filming card, paste the standard raw footage Google Drive folder URL.',
+        'Confirm filming is complete. Each brand row moves to Filming Complete and Current Owner becomes Estefanie.'
       ]
     },
     {
@@ -337,6 +350,7 @@ function instructionsBuildContent_(sheet) {
       title: 'Start editing',
       body: [
         'Filming Complete and Revision Requested items appear in Estefanie task queue.',
+        'HP and VVS deliverables appear as separate editing cards after filming is complete, even when they came from one grouped shoot.',
         'Use Start Editing for first edits and Start Revision when Brand Manager requested changes.',
         'The item moves to Editing V1 or Editing V2+.'
       ]
@@ -361,6 +375,7 @@ function instructionsBuildContent_(sheet) {
       title: 'Mark content posted',
       body: [
         'Scheduled cards show platform, date/time, caption preview, and final video URL.',
+        'For paired HP/VVS content, use the spacing label as a planning check before posting.',
         'Use Mark as Posted after the post is live.',
         'Platform is required. Live post URL is optional for V1 but recommended.'
       ]
@@ -424,8 +439,8 @@ function instructionsBuildContent_(sheet) {
     {
       title: 'View tabs',
       body: [
-        '1B. Filming Calendar: filming schedule view.',
-        '1C. Posting Calendar: posting schedule view.',
+        '1B. Filming Calendar: read-only monthly filming dashboard rebuilt from 1A.',
+        '1C. Posting Calendar: read-only monthly posting dashboard rebuilt from 1A.',
         '1D. Kanban View: script-built board view for scanability.'
       ]
     },
@@ -453,6 +468,7 @@ function instructionsBuildContent_(sheet) {
       body: [
         'Do not edit 1B, 1C, or 1D directly.',
         'Confirm Posting Date, Time, Filming Date, Status, and Content # are filled correctly on 1A.',
+        'For calendar layout or date-range issues, update Calendar Start Date on 1B/1C and run Content Workflow > Rebuild Calendar Views.',
         'For Kanban layout issues, rerun buildKanbanView().'
       ]
     },
