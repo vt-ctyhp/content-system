@@ -138,6 +138,7 @@
               Film: ${escapeHtml(task['Filming Date'] || '')}<br>
               Post: ${escapeHtml(task['Posting Date'] || '')} ${escapeHtml(task.Time || '')}
               ${renderRevisionMeta(task)}
+              ${renderSchedulingMeta(task)}
             </div>
             ${renderActions(task)}
           </div>
@@ -150,6 +151,19 @@
         if (task.latestEditedUrl) lines.push(`Latest edit: ${escapeHtml(task.latestEditedUrl)}`);
         if (task.status === 'Revision Requested' && task.abbyFeedback) lines.push(`Abby feedback: ${escapeHtml(task.abbyFeedback)}`);
         if (task.editorNotes) lines.push(`Editor notes: ${escapeHtml(task.editorNotes)}`);
+        return lines.length ? `<br>${lines.join('<br>')}` : '';
+      }
+
+      function renderSchedulingMeta(task) {
+        const lines = [];
+        if (task.finalApprovedVideoUrl) lines.push(`Final video: ${escapeHtml(task.finalApprovedVideoUrl)}`);
+        if (task.platforms) lines.push(`Platform(s): ${escapeHtml(task.platforms)}`);
+        if (task.schedulingReadiness && task.schedulingReadiness.missing && task.schedulingReadiness.missing.length) {
+          lines.push(`Missing: ${escapeHtml(task.schedulingReadiness.missing.join(', '))}`);
+        }
+        if (task.postingContext && task.postingContext.captionPreview) {
+          lines.push(`Caption: ${escapeHtml(task.postingContext.captionPreview)}`);
+        }
         return lines.length ? `<br>${lines.join('<br>')}` : '';
       }
 

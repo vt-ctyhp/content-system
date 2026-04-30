@@ -441,6 +441,12 @@ function getTaskQueue(userName) {
       record.latestEditedUrl = getLatestEditedUrl_(record, revisionHistory);
       record.abbyFeedback = record['Abby Feedback'] || '';
       record.editorNotes = record['Editor Notes'] || '';
+      record.platforms = record['Platform(s)'] || '';
+      record.postingDate = record['Posting Date'] || '';
+      record.postingTime = record.Time || '';
+      record.finalApprovedVideoUrl = getApprovedVideoUrlForScheduling_(record, revisionHistory);
+      record.schedulingReadiness = getSchedulingReadiness_(record, revisionHistory);
+      record.postingContext = getPostingContext_(record);
       record.availableActions = getAvailableActionsForRecord_(record, normalizedUser);
       return record;
     })
@@ -771,29 +777,42 @@ function reviewApproveContent_(payload) {
 }
 
 function scheduleContent_(payload) {
+  const record = getContentRecordById_(payload.contentId);
+  const revisionHistory = getRevisionHistory_(payload.contentId);
+  const approvedVideoUrl = getApprovedVideoUrlForScheduling_(record, revisionHistory);
+  if (!approvedVideoUrl) {
+    throw new Error('Cannot schedule without a final approved video URL or latest edited URL.');
+  }
+
   advanceWorkflow_(payload.contentId, 'scheduleContent', payload, {
     updates: {
-    'Platform(s)': payload.platforms,
-    'Posting Date': payload.postingDate,
-    Time: payload.postingTime,
-    Caption: payload.caption,
-    CTA: payload.cta,
-    Hashtags: payload.hashtags,
-    'Scheduled By': getEffectiveUserEmail_(),
-    'Stage Completed Timestamp': new Date(),
+      'Platform(s)': payload.platforms,
+      'Posting Date': normalizeDateForSheet_(payload.postingDate),
+      Time: normalizeTimeForSheet_(payload.postingTime),
+      Caption: payload.caption,
+      CTA: payload.cta,
+      Hashtags: payload.hashtags,
+      'Final Approved Video URL': approvedVideoUrl,
+      'Scheduled By': getEffectiveUserEmail_(),
+      'Stage Completed Timestamp': new Date(),
     },
     logAction: 'SCHEDULE_CONTENT',
+    urlSubmitted: approvedVideoUrl,
   });
 
   return successResult_(`Content #${payload.contentId} scheduled.`);
 }
 
 function markContentPosted_(payload) {
+  if (!payload.platformPosted) {
+    throw new Error('Platform posted is required.');
+  }
+
   advanceWorkflow_(payload.contentId, 'markPosted', payload, {
     updates: {
-    'Posted URL': payload.livePostUrl || '',
-    'Posted Timestamp': new Date(),
-    'Stage Completed Timestamp': new Date(),
+      'Posted URL': payload.livePostUrl || '',
+      'Posted Timestamp': new Date(),
+      'Stage Completed Timestamp': new Date(),
     },
     logAction: 'MARK_POSTED',
     notes: payload.postedNotes || `Posted to ${payload.platformPosted}.`,
@@ -840,12 +859,14 @@ function buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillCo
   if (selectedContent && selectedContent.contentId) {
     const revisionHistory = getRevisionHistory_(selectedContent.contentId);
     defaults.contentId = selectedContent.contentId;
+    defaults.platforms = selectedContent['Platform(s)'] || '';
+    defaults.platformPosted = selectedContent['Platform(s)'] || '';
     defaults.caption = selectedContent.Caption || '';
     defaults.cta = selectedContent.CTA || '';
     defaults.hashtags = selectedContent.Hashtags || '';
     defaults.postingDate = selectedContent['Posting Date'] || '';
     defaults.postingTime = selectedContent.Time || '';
-    defaults.approvedVideoUrl = selectedContent['Final Approved Video URL'] || getLatestEditedUrl_(selectedContent, revisionHistory);
+    defaults.approvedVideoUrl = getApprovedVideoUrlForScheduling_(selectedContent, revisionHistory);
   }
 
   if (action === 'promoteIdea' && selectedIdea) {
@@ -889,6 +910,32 @@ function buildWorkflowContextLines_(action, selectedContent) {
     if (selectedContent['Editor Notes']) {
       lines.push(`Editor notes: ${selectedContent['Editor Notes']}`);
     }
+  }
+
+  if (action === 'scheduleContent') {
+    const approvedUrl = getApprovedVideoUrlForScheduling_(selectedContent, revisionHistory);
+    const readiness = getSchedulingReadiness_(selectedContent, revisionHistory);
+    lines.push(approvedUrl ? `Approved video URL: ${approvedUrl}` : 'Missing approved video URL');
+    if (!readiness.ready) {
+      lines.push(`Missing schedule fields: ${readiness.missing.join(', ')}`);
+    }
+  }
+
+  if (action === 'markPosted') {
+    const context = getPostingContext_(selectedContent);
+    if (context.platforms) {
+      lines.push(`Platform(s): ${context.platforms}`);
+    }
+    if (context.postingDate || context.postingTime) {
+      lines.push(`Scheduled for: ${[context.postingDate, context.postingTime].filter(Boolean).join(' ')}`);
+    }
+    if (context.finalApprovedVideoUrl) {
+      lines.push(`Final video URL: ${context.finalApprovedVideoUrl}`);
+    }
+    if (context.captionPreview) {
+      lines.push(`Caption preview: ${context.captionPreview}`);
+    }
+    lines.push('Live post URL is optional but recommended.');
   }
 
   return lines;
@@ -1264,6 +1311,53 @@ function getLatestEditedUrl_(record, revisionHistory) {
   }
 
   return record['Edited V3 URL'] || record['Edited V2 URL'] || record['Edited V1 URL'] || '';
+}
+
+function getSchedulingReadiness_(record, revisionHistory) {
+  const requiredFields = [
+    ['Platform(s)', 'platform'],
+    ['Posting Date', 'posting date'],
+    ['Time', 'posting time'],
+    ['Caption', 'caption'],
+    ['CTA', 'CTA'],
+    ['Hashtags', 'hashtags'],
+  ];
+  const missing = requiredFields
+    .filter(([header]) => !String(record[header] || '').trim())
+    .map(([, label]) => label);
+  const approvedUrl = getApprovedVideoUrlForScheduling_(record, revisionHistory);
+
+  if (!approvedUrl) {
+    missing.push('approved video URL');
+  }
+
+  return {
+    ready: missing.length === 0,
+    missing,
+  };
+}
+
+function getPostingContext_(record) {
+  const caption = String(record.Caption || '');
+  return {
+    platforms: record['Platform(s)'] || '',
+    postingDate: record['Posting Date'] || '',
+    postingTime: record.Time || '',
+    finalApprovedVideoUrl: getApprovedVideoUrlForScheduling_(record),
+    captionPreview: caption.length > 90 ? `${caption.slice(0, 87)}...` : caption,
+  };
+}
+
+function getApprovedVideoUrlForScheduling_(record, revisionHistory) {
+  return record['Final Approved Video URL'] || getLatestEditedUrl_(record, revisionHistory || []);
+}
+
+function normalizeDateForSheet_(value) {
+  return value || '';
+}
+
+function normalizeTimeForSheet_(value) {
+  return value || '';
 }
 
 function getLatestRevisionEntryFromHistory_(revisionHistory) {
