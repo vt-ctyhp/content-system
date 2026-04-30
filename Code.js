@@ -363,11 +363,12 @@ function getWorkflowDialogModel(action, prefillContentId) {
   const options = getWorkflowOptions_(spreadsheet);
   const selectedContent = prefillContentId ? getContentRecordById_(prefillContentId) : getSelectedContentContext_(spreadsheet);
   const selectedIdea = getSelectedIdeaContext_(spreadsheet);
+  const display = getWorkflowActionDisplay_(action, selectedContent);
 
   return {
     action,
-    title: config.title,
-    submitLabel: config.submitLabel,
+    title: display.title || config.title,
+    submitLabel: display.submitLabel || config.submitLabel,
     fields: config.fields,
     options,
     selectedContent,
@@ -1023,7 +1024,7 @@ function getAvailableActionsForRecord_(record, userName) {
   }
 
   if ((isAdmin || userName === 'Stephanie') && (record.status === 'Filming Complete' || record.status === 'Revision Requested')) {
-    actionIds.push('startEditing');
+    actionIds.push(record.status === 'Revision Requested' ? 'startEditingRevision' : 'startEditing');
   }
 
   if ((isAdmin || userName === 'Stephanie') && (record.status === 'Editing V1' || record.status === 'Editing V2+')) {
@@ -1047,9 +1048,20 @@ function getAvailableActionsForRecord_(record, userName) {
   }
 
   return actionIds.map((action) => ({
-    action,
+    action: action === 'startEditingRevision' ? 'startEditing' : action,
     label: actionLabel_(action),
   }));
+}
+
+function getWorkflowActionDisplay_(action, record) {
+  if (action === 'startEditing' && record && record.status === 'Revision Requested') {
+    return {
+      title: 'Start Revision',
+      submitLabel: 'Start Revision',
+    };
+  }
+
+  return {};
 }
 
 function actionLabel_(action) {
