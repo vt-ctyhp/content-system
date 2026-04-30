@@ -4,6 +4,7 @@ const PHASE1 = {
     settings: '5. Settings',
     activityLog: 'Activity Log',
     revisionLog: 'Revision Log',
+    workflowQaReport: 'Workflow QA Report',
     notes: '0. Notes',
   },
   rows: {
@@ -68,6 +69,15 @@ const PHASE1 = {
     'Feedback From Abby',
     'Decision',
     'Notes',
+  ],
+  workflowQaHeaders: [
+    'Timestamp',
+    'Severity',
+    'Content #',
+    'Status',
+    'Current Owner',
+    'Issue',
+    'Recommended Fix',
   ],
   configLists: {
     Statuses: [
@@ -291,6 +301,7 @@ function onOpen() {
     .addItem('Open My Task Queue', 'openMyTaskQueueSidebar')
     .addItem('Admin Override', 'openAdminOverrideDialog')
     .addSeparator()
+    .addItem('Run Workflow QA Check', 'runWorkflowQaCheck')
     .addItem('Run Phase 1 Setup', 'setupPhase1DatabaseFoundation')
     .addToUi();
 }
@@ -421,17 +432,17 @@ function getTaskQueue(userName) {
   const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
   const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
   const lastDataRow = getLastContentDataRow_(sheet, contentIdColumn);
+  const normalizedUser = String(userName || '').trim();
 
   if (lastDataRow < PHASE1.rows.contentDataStart) {
-    return [];
+    return buildTaskQueuePayload_([], normalizedUser);
   }
 
   const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
   const values = sheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, sheet.getLastColumn()).getDisplayValues();
-  const normalizedUser = String(userName || '').trim();
   const revisionHistoryMap = getRevisionHistoryMap_();
 
-  return values
+  const tasks = values
     .map((row, index) => rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index))
     .filter((record) => record.contentId && record.status !== 'Posted')
     .filter((record) => taskBelongsInQueue_(record, normalizedUser))
@@ -447,10 +458,260 @@ function getTaskQueue(userName) {
       record.finalApprovedVideoUrl = getApprovedVideoUrlForScheduling_(record, revisionHistory);
       record.schedulingReadiness = getSchedulingReadiness_(record, revisionHistory);
       record.postingContext = getPostingContext_(record);
+      record.blockerIssue = record['Blocker / Issue'] || '';
+      record.isBlocked = Boolean(record.blockerIssue);
+      record.isOverdue = isRecordOverdue_(record);
+      record.overdueLabel = getOverdueLabel_(record);
       record.availableActions = getAvailableActionsForRecord_(record, normalizedUser);
       return record;
     })
     .slice(0, 100);
+
+  return buildTaskQueuePayload_(tasks, normalizedUser);
+}
+
+function buildTaskQueuePayload_(tasks, userName) {
+  return {
+    userName: userName || '',
+    tasks,
+    summary: buildTaskQueueSummary_(tasks),
+  };
+}
+
+function buildTaskQueueSummary_(tasks) {
+  return tasks.reduce((summary, task) => {
+    summary.total += 1;
+    incrementCount_(summary.byStatus, task.status || 'Blank');
+    incrementCount_(summary.byOwner, task.currentOwner || 'Unassigned');
+    if (task.isOverdue) {
+      summary.overdue += 1;
+    }
+    if (task.isBlocked) {
+      summary.blocked += 1;
+    }
+    return summary;
+  }, {
+    total: 0,
+    overdue: 0,
+    blocked: 0,
+    byStatus: {},
+    byOwner: {},
+  });
+}
+
+function incrementCount_(map, key) {
+  map[key] = (map[key] || 0) + 1;
+}
+
+function runWorkflowQaCheck() {
+  const spreadsheet = SpreadsheetApp.getActive();
+  const reportSheet = ensureWorkflowQaReport_(spreadsheet);
+  const rows = buildWorkflowQaRows_();
+
+  clearWorkflowQaReport_(reportSheet);
+  if (rows.length) {
+    reportSheet.getRange(PHASE1.rows.logHeader + 1, 1, rows.length, PHASE1.workflowQaHeaders.length)
+      .setValues(rows);
+  }
+  reportSheet.autoResizeColumns(1, PHASE1.workflowQaHeaders.length);
+  spreadsheet.toast(`Workflow QA complete. ${rows.length} issue(s) found.`, 'Content Workflow', 8);
+
+  return {
+    issueCount: rows.length,
+    reportSheet: reportSheet.getName(),
+  };
+}
+
+function buildWorkflowQaRows_() {
+  const spreadsheet = SpreadsheetApp.getActive();
+  const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
+  const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
+  const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
+  const lastDataRow = getLastContentDataRow_(sheet, contentIdColumn);
+
+  if (lastDataRow < PHASE1.rows.contentDataStart) {
+    return [];
+  }
+
+  const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
+  const values = sheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, sheet.getLastColumn()).getDisplayValues();
+  const revisionHistoryMap = getRevisionHistoryMap_();
+  const timestamp = new Date();
+  const qaRows = [];
+
+  values.forEach((row, index) => {
+    const record = rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index);
+    if (!record.contentId) {
+      return;
+    }
+
+    const revisionHistory = revisionHistoryMap[normalizeContentId_(record.contentId)] || [];
+    getWorkflowQaIssuesForRecord_(record, revisionHistory).forEach((issue) => {
+      qaRows.push([
+        timestamp,
+        issue.severity,
+        record.contentId,
+        record.status,
+        record.currentOwner,
+        issue.issue,
+        issue.recommendedFix,
+      ]);
+    });
+  });
+
+  return qaRows;
+}
+
+function getWorkflowQaIssuesForRecord_(record, revisionHistory) {
+  const issues = [];
+  const status = record.status || '';
+  const activeStatuses = PHASE1.configLists.Statuses;
+
+  if (status && activeStatuses.indexOf(status) === -1) {
+    addWorkflowQaIssue_(issues, 'High', `Status "${status}" is not in the controlled workflow status list.`, 'Use Admin Override to move the item to a supported status.');
+  }
+
+  getRequiredFieldsForStatus_(status).forEach((field) => {
+    if (!String(record[field.header] || '').trim()) {
+      addWorkflowQaIssue_(issues, 'High', `${field.label} is missing for status "${status}".`, `Fill in ${field.label} on ${PHASE1.sheets.content}.`);
+    }
+  });
+
+  const expectedOwner = getExpectedOwnerForStatus_(status);
+  if (expectedOwner && record.currentOwner !== expectedOwner) {
+    addWorkflowQaIssue_(issues, 'High', `Current Owner should be ${expectedOwner} for status "${status}".`, `Set Current Owner to ${expectedOwner}.`);
+  }
+
+  if (status === 'Ready for Abby Review' && !getLatestEditedUrl_(record, revisionHistory)) {
+    addWorkflowQaIssue_(issues, 'High', 'Ready for Abby Review is missing an edited video URL.', 'Submit an edited version or add the latest edited URL before review.');
+  }
+
+  addRevisionQaIssues_(issues, record, revisionHistory);
+
+  if (status === 'Approved' && !String(record['Final Approved Video URL'] || '').trim()) {
+    addWorkflowQaIssue_(issues, 'High', 'Approved content is missing a final approved video URL.', 'Add Final Approved Video URL or approve from an existing edited URL.');
+  }
+
+  if (status === 'Scheduled') {
+    const readiness = getSchedulingReadiness_(record, revisionHistory);
+    if (!readiness.ready) {
+      addWorkflowQaIssue_(issues, 'High', `Scheduled content is missing: ${readiness.missing.join(', ')}.`, 'Open Schedule Content and fill all scheduling fields.');
+    }
+  }
+
+  if (record['Blocker / Issue']) {
+    addWorkflowQaIssue_(issues, 'Medium', `Blocker noted: ${record['Blocker / Issue']}`, 'Resolve the blocker or update the blocker note.');
+  }
+
+  const overdueLabel = getOverdueLabel_(record);
+  if (overdueLabel) {
+    addWorkflowQaIssue_(issues, 'Medium', overdueLabel, 'Update the date, complete the task, or move the item to the correct status.');
+  }
+
+  return issues;
+}
+
+function addRevisionQaIssues_(issues, record, revisionHistory) {
+  const latestEntry = getLatestRevisionEntryFromHistory_(revisionHistory);
+  const latestLoggedVersion = latestEntry ? Number(latestEntry.versionNumber) || 0 : 0;
+  const revisionCount = Number(record['Revision Count']) || 0;
+
+  if (latestLoggedVersion && revisionCount && revisionCount < latestLoggedVersion) {
+    addWorkflowQaIssue_(issues, 'Medium', `Revision Count (${revisionCount}) is behind Revision Log V${latestLoggedVersion}.`, 'Review Revision Count and latest Revision Log entries.');
+  }
+
+  if (record.status === 'Ready for Abby Review' && (!latestEntry || latestEntry.decision !== 'Submitted')) {
+    addWorkflowQaIssue_(issues, 'Medium', 'Ready for Abby Review does not have a latest Revision Log decision of Submitted.', 'Submit the edited version through the workflow dialog.');
+  }
+
+  if (record.status === 'Revision Requested' && (!latestEntry || latestEntry.decision !== 'Revision Requested')) {
+    addWorkflowQaIssue_(issues, 'Medium', 'Revision Requested does not have a matching latest Revision Log decision.', 'Request revision through the review dialog so the Revision Log stays aligned.');
+  }
+}
+
+function addWorkflowQaIssue_(issues, severity, issue, recommendedFix) {
+  issues.push({
+    severity,
+    issue,
+    recommendedFix,
+  });
+}
+
+function getRequiredFieldsForStatus_(status) {
+  const fieldsByStatus = {
+    'Assigned to Film': [
+      ['Assigned Filmer(s)', 'assigned filmer'],
+      ['Filming Date', 'filming date'],
+      ['Shot List', 'shot list'],
+      ['Filming Instructions', 'filming instructions'],
+    ],
+    'Filming Complete': [
+      ['Raw Footage Folder URL', 'raw footage URL'],
+    ],
+    'Revision Requested': [
+      ['Abby Feedback', 'Abby feedback'],
+    ],
+    Posted: [
+      ['Posted Timestamp', 'posted timestamp'],
+    ],
+  };
+
+  return (fieldsByStatus[status] || []).map((field) => ({
+    header: field[0],
+    label: field[1],
+  }));
+}
+
+function getExpectedOwnerForStatus_(status) {
+  const ownersByStatus = {
+    'Filming Complete': 'Stephanie',
+    'Editing V1': 'Stephanie',
+    'Editing V2+': 'Stephanie',
+    'Ready for Abby Review': 'Abby',
+    'Revision Requested': 'Stephanie',
+    Scheduled: 'Stephanie',
+  };
+  return ownersByStatus[status] || '';
+}
+
+function isRecordOverdue_(record) {
+  return Boolean(getOverdueLabel_(record));
+}
+
+function getOverdueLabel_(record) {
+  if (record.status === 'Assigned to Film' && isDateOverdue_(record['Filming Date'])) {
+    return `Filming date is overdue: ${record['Filming Date']}.`;
+  }
+  if (record.status === 'Scheduled' && isDateOverdue_(record['Posting Date'])) {
+    return `Posting date is overdue: ${record['Posting Date']}.`;
+  }
+  return '';
+}
+
+function isDateOverdue_(dateValue) {
+  const date = parseSheetDate_(dateValue);
+  if (!date) {
+    return false;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date < today;
+}
+
+function parseSheetDate_(dateValue) {
+  if (!dateValue) {
+    return null;
+  }
+  if (Object.prototype.toString.call(dateValue) === '[object Date]' && !Number.isNaN(dateValue.getTime())) {
+    return new Date(dateValue.getTime());
+  }
+
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+  return parsedDate;
 }
 
 function getWorkflowActionConfig_(action) {
@@ -828,7 +1089,7 @@ function adminOverrideContent_(payload) {
   updateContentRecord_(payload.contentId, {
     Status: payload.status,
     'Current Owner': payload.currentOwner || '',
-  }, 'ADMIN_OVERRIDE', payload.notes, '');
+  }, 'ADMIN_OVERRIDE', `ADMIN OVERRIDE: ${payload.notes}`, '');
 
   return successResult_(`Admin override applied to Content #${payload.contentId}.`);
 }
@@ -1050,11 +1311,20 @@ function assertAllowedTransition_(record, action) {
 
   const configuredRule = WORKFLOW_TRANSITIONS[action];
   const allowedStatuses = configuredRule ? configuredRule.from.join(', ') : 'none';
-  throw new Error(`Cannot run ${actionLabel_(action)} from status "${record.status || 'blank'}". Allowed statuses: ${allowedStatuses}.`);
+  throw new Error(`Content #${record.contentId || 'unknown'} is currently "${record.status || 'blank'}". ${actionLabel_(action)} requires one of these statuses first: ${allowedStatuses}.`);
 }
 
 function validateRequiredFields_(payload, requiredFields) {
-  requireFields_(payload, requiredFields);
+  const missingFields = requiredFields
+    .filter((field) => !String(payload[field] || '').trim())
+    .map(fieldLabel_);
+
+  if (!missingFields.length) {
+    return;
+  }
+
+  const contentLabel = payload.contentId ? `Content #${payload.contentId}` : 'This action';
+  throw new Error(`${contentLabel} is missing required field(s): ${missingFields.join(', ')}.`);
 }
 
 function getAvailableActionsForRecord_(record, userName) {
@@ -1693,6 +1963,22 @@ function ensureActivityLog_(spreadsheet) {
 
 function ensureRevisionLog_(spreadsheet) {
   return ensureLogSheet_(spreadsheet, PHASE1.sheets.revisionLog, PHASE1.revisionLogHeaders);
+}
+
+function ensureWorkflowQaReport_(spreadsheet) {
+  return ensureLogSheet_(spreadsheet, PHASE1.sheets.workflowQaReport, PHASE1.workflowQaHeaders);
+}
+
+function clearWorkflowQaReport_(sheet) {
+  ensureColumns_(sheet, PHASE1.workflowQaHeaders.length);
+  const lastRow = sheet.getLastRow();
+  if (lastRow > PHASE1.rows.logHeader) {
+    sheet.getRange(PHASE1.rows.logHeader + 1, 1, lastRow - PHASE1.rows.logHeader, sheet.getLastColumn()).clearContent();
+  }
+  sheet.getRange(PHASE1.rows.logHeader, 1, 1, PHASE1.workflowQaHeaders.length)
+    .setValues([PHASE1.workflowQaHeaders])
+    .setFontWeight('bold');
+  sheet.setFrozenRows(1);
 }
 
 function standardizeExistingStatuses_(spreadsheet, columnMap, activityLog) {

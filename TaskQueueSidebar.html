@@ -65,6 +65,32 @@
         line-height: 1.45;
       }
 
+      .summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 0 12px;
+      }
+
+      .pill {
+        border: 1px solid #dadce0;
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: #f8fafd;
+        color: #3c4043;
+        font-size: 12px;
+      }
+
+      .pill.warning {
+        border-color: #fbbc04;
+        background: #fff8e1;
+      }
+
+      .pill.danger {
+        border-color: #f28b82;
+        background: #fce8e6;
+      }
+
       .task-actions {
         display: flex;
         flex-wrap: wrap;
@@ -97,6 +123,7 @@
       <button type="button" onclick="loadQueue()">Refresh</button>
     </div>
     <div id="status" class="status">Loading...</div>
+    <div id="summary" class="summary"></div>
     <div id="tasks"></div>
 
     <script>
@@ -125,13 +152,17 @@
           .getTaskQueue(user);
       }
 
-      function renderTasks(tasks) {
+      function renderTasks(payload) {
+        const tasks = Array.isArray(payload) ? payload : (payload.tasks || []);
+        const summary = Array.isArray(payload) ? null : payload.summary;
         const container = document.getElementById('tasks');
+        renderSummary(summary);
         setStatus(`${tasks.length} active task(s)`, '');
         container.innerHTML = tasks.map((task) => `
           <div class="task">
             <div class="task-title">#${escapeHtml(task.contentId)} ${escapeHtml(task.idea || '')}</div>
             <div class="meta">
+              ${renderTaskLabels(task)}
               Status: ${escapeHtml(task.status || '')}<br>
               Owner: ${escapeHtml(task.currentOwner || '')}<br>
               Filmer: ${escapeHtml(task['Assigned Filmer(s)'] || '')}<br>
@@ -143,6 +174,40 @@
             ${renderActions(task)}
           </div>
         `).join('');
+      }
+
+      function renderSummary(summary) {
+        const container = document.getElementById('summary');
+        if (!summary) {
+          container.innerHTML = '';
+          return;
+        }
+
+        const pills = [`${summary.total || 0} active`];
+        Object.keys(summary.byStatus || {}).forEach((status) => {
+          pills.push(`${status}: ${summary.byStatus[status]}`);
+        });
+        Object.keys(summary.byOwner || {}).forEach((owner) => {
+          pills.push(`${owner}: ${summary.byOwner[owner]}`);
+        });
+
+        container.innerHTML = `
+          ${pills.map((pill) => `<span class="pill">${escapeHtml(pill)}</span>`).join('')}
+          ${(summary.overdue || 0) ? `<span class="pill warning">${escapeHtml(summary.overdue)} overdue</span>` : ''}
+          ${(summary.blocked || 0) ? `<span class="pill danger">${escapeHtml(summary.blocked)} blocked</span>` : ''}
+        `;
+      }
+
+      function renderTaskLabels(task) {
+        const labels = [];
+        if (task.isOverdue && task.overdueLabel) {
+          labels.push(`<span class="pill warning">${escapeHtml(task.overdueLabel)}</span>`);
+        }
+        if (task.isBlocked) {
+          const blocker = task.blockerIssue ? `Blocked: ${task.blockerIssue}` : 'Blocked';
+          labels.push(`<span class="pill danger">${escapeHtml(blocker)}</span>`);
+        }
+        return labels.length ? `${labels.join('')}<br>` : '';
       }
 
       function renderRevisionMeta(task) {
