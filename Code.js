@@ -441,12 +441,52 @@ const STRICT_WORKFLOW_CONFIG_LISTS = [
   'Moment Actions',
 ];
 
+const IDEA_BRAIN_DUMP = {
+  sheetName: '3. Idea Brain Dump',
+  headerRow: 5,
+  dataStart: 6,
+  headers: [
+    'Idea ID',
+    'Submitted Date',
+    'Submitted By',
+    'Brand Manager Review Status',
+    'Promote to 1A?',
+    'Content Pillar',
+    'Format',
+    'Goal',
+    'Idea / Title',
+    'Subject',
+    'Moment / Action',
+    'Inspiration Link',
+    'Notes',
+    'Promoted Content #',
+    'Promoted Timestamp',
+  ],
+  legacyPositions: {
+    'Content Pillar': 4,
+    Format: 5,
+    Goal: 6,
+    'Idea / Title': 7,
+    'Inspiration Link': 8,
+    'Promote to 1A?': 9,
+    'Submitted Date': 10,
+    'Submitted By': 11,
+    Subject: 12,
+    'Moment / Action': 13,
+    Notes: 14,
+    'Brand Manager Review Status': 15,
+    'Promoted Content #': 16,
+    'Promoted Timestamp': 17,
+  },
+};
+
 function setupPhase1DatabaseFoundation() {
   const spreadsheet = SpreadsheetApp.getActive();
   const activityLog = ensureActivityLog_(spreadsheet);
   const revisionLog = ensureRevisionLog_(spreadsheet);
   const configRanges = ensureWorkflowSettings_(spreadsheet);
   const columnMap = rebuildContentPlanningSchema_(spreadsheet);
+  rebuildIdeaBrainDumpSheet_(spreadsheet);
   const statusChanges = standardizeExistingStatuses_(spreadsheet, columnMap, activityLog);
 
   applyWorkflowValidations_(spreadsheet, columnMap, configRanges);
@@ -1207,27 +1247,26 @@ function getWorkflowActionConfig_(action) {
 function addNewIdea_(payload) {
   requireFields_(payload, ['submittedBy', 'contentPillar', 'format', 'ideaTitle']);
   const spreadsheet = SpreadsheetApp.getActive();
-  const sheet = requireSheet_(spreadsheet, '3. Idea Brain Dump');
-  const row = findFirstBlankRowByColumn_(sheet, 7, 6);
-
+  const sheet = requireSheet_(spreadsheet, IDEA_BRAIN_DUMP.sheetName);
   ensureIdeaBrainDumpColumns_(sheet);
+  const columnMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+  const row = findFirstBlankRowByColumn_(sheet, columnMap['Idea / Title'], IDEA_BRAIN_DUMP.dataStart);
   ensureRows_(sheet, row);
-  sheet.getRange(row, 4, 1, 6).setValues([[
-    payload.contentPillar,
-    payload.format,
-    payload.goal,
-    payload.ideaTitle,
-    payload.inspirationLink || '',
-    0,
-  ]]);
-  sheet.getRange(row, 10, 1, 6).setValues([[
-    new Date(),
-    payload.submittedBy,
-    payload.subject || '',
-    payload.momentAction || '',
-    payload.notes || '',
-    'Needs Review',
-  ]]);
+  writeIdeaBrainDumpValues_(sheet, row, columnMap, {
+    'Idea ID': getNextIdeaId_(sheet, columnMap),
+    'Submitted Date': new Date(),
+    'Submitted By': payload.submittedBy,
+    'Brand Manager Review Status': 'Needs Review',
+    'Promote to 1A?': 0,
+    'Content Pillar': payload.contentPillar,
+    Format: payload.format,
+    Goal: payload.goal,
+    'Idea / Title': payload.ideaTitle,
+    Subject: payload.subject || '',
+    'Moment / Action': payload.momentAction || '',
+    'Inspiration Link': payload.inspirationLink || '',
+    Notes: payload.notes || '',
+  });
 
   appendActivityLog_('', 'ADD_IDEA', '', 'Idea', `Added idea on row ${row}: ${payload.ideaTitle}`, payload.inspirationLink || '');
   return successResult_(`Idea added to row ${row}.`, { row });
@@ -1253,10 +1292,15 @@ function promoteIdeaToPlanning_(payload) {
   styleContentPlanningDataRows_(contentSheet, columnMap);
 
   ensureIdeaBrainDumpColumns_(ideaSheet);
+  const ideaColumnMap = getHeaderMap_(ideaSheet, IDEA_BRAIN_DUMP.headerRow);
   const ideaRow = Number(payload.ideaRow);
-  if (ideaRow >= 6) {
-    ideaSheet.getRange(ideaRow, 9).setValue(1);
-    ideaSheet.getRange(ideaRow, 16, 1, 2).setValues([[createdContentIds.join(', '), new Date()]]);
+  if (ideaRow >= IDEA_BRAIN_DUMP.dataStart) {
+    writeIdeaBrainDumpValues_(ideaSheet, ideaRow, ideaColumnMap, {
+      'Promote to 1A?': 1,
+      'Promoted Content #': createdContentIds.join(', '),
+      'Promoted Timestamp': new Date(),
+      'Brand Manager Review Status': 'Promoted',
+    });
   }
 
   appendActivityLog_(createdContentIds.join(', '), 'PROMOTE_IDEA', '', status, `Promoted idea row ${payload.ideaRow} to ${payload.brandSet}: ${createdContentIds.join(', ')}.`, '');
@@ -1676,20 +1720,24 @@ function getSelectedIdeaContext_(spreadsheet) {
   const range = spreadsheet.getActiveRange();
   const sheet = spreadsheet.getActiveSheet();
 
-  if (!range || !sheet || sheet.getName() !== '3. Idea Brain Dump' || range.getRow() < 6) {
+  if (!range || !sheet || sheet.getName() !== IDEA_BRAIN_DUMP.sheetName || range.getRow() < IDEA_BRAIN_DUMP.dataStart) {
     return null;
   }
 
   const row = range.getRow();
-  const values = sheet.getRange(row, 1, 1, Math.max(sheet.getLastColumn(), 17)).getDisplayValues()[0];
+  ensureIdeaBrainDumpColumns_(sheet);
+  const columnMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+  const values = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
+  const record = rowToIdeaBrainDumpRecord_(values, columnMap);
   return {
     row,
-    contentPillar: values[3] || '',
-    format: values[4] || '',
-    goal: values[5] || '',
-    ideaTitle: values[6] || '',
-    inspirationLink: values[7] || '',
-    momentAction: values[12] || '',
+    contentPillar: record['Content Pillar'] || '',
+    format: record.Format || '',
+    goal: record.Goal || '',
+    ideaTitle: record['Idea / Title'] || '',
+    inspirationLink: record['Inspiration Link'] || '',
+    subject: record.Subject || '',
+    momentAction: record['Moment / Action'] || '',
   };
 }
 
@@ -2331,25 +2379,271 @@ function buildCalendarDisplayValue_(record) {
 }
 
 function ensureIdeaBrainDumpColumns_(sheet) {
-  renameLegacyHeaders_(sheet, 5);
-  const headers = {
-    10: 'Submitted Date',
-    11: 'Submitted By',
-    12: 'Subject',
-    13: 'Moment / Action',
-    14: 'Notes',
-    15: 'Brand Manager Review Status',
-    16: 'Promoted Content #',
-    17: 'Promoted Timestamp',
-  };
+  if (!isIdeaBrainDumpSchemaCurrent_(sheet)) {
+    rebuildIdeaBrainDumpSurface_(sheet, readIdeaBrainDumpRecords_(sheet));
+    return;
+  }
+  styleIdeaBrainDumpSheet_(sheet);
+}
 
-  ensureColumns_(sheet, 17);
-  Object.keys(headers).forEach((columnText) => {
-    const column = Number(columnText);
-    if (!sheet.getRange(5, column).getDisplayValue()) {
-      sheet.getRange(5, column).setValue(headers[column]).setFontWeight('bold');
+function rebuildIdeaBrainDumpSheet_(spreadsheet) {
+  const sheet = requireSheet_(spreadsheet, IDEA_BRAIN_DUMP.sheetName);
+  rebuildIdeaBrainDumpSurface_(sheet, readIdeaBrainDumpRecords_(sheet));
+  applyIdeaBrainDumpValidations_(spreadsheet, sheet);
+}
+
+function readIdeaBrainDumpRecords_(sheet) {
+  const headerMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < IDEA_BRAIN_DUMP.dataStart) {
+    return [];
+  }
+
+  const rowCount = lastRow - IDEA_BRAIN_DUMP.dataStart + 1;
+  const range = sheet.getRange(IDEA_BRAIN_DUMP.dataStart, 1, rowCount, Math.max(sheet.getLastColumn(), 17));
+  const values = range.getDisplayValues();
+  const richTextValues = range.getRichTextValues();
+  return values
+    .map((row, index) => {
+      const record = rowToIdeaBrainDumpRecord_(row, headerMap);
+      attachIdeaBrainDumpRichText_(record, richTextValues[index], headerMap);
+      return record;
+    })
+    .filter((record) => ideaBrainDumpRecordHasData_(record));
+}
+
+function rowToIdeaBrainDumpRecord_(row, headerMap) {
+  const record = {};
+  IDEA_BRAIN_DUMP.headers.forEach((header) => {
+    const headerColumn = headerMap[header] || getIdeaBrainDumpLegacyColumn_(header);
+    record[header] = headerColumn ? row[headerColumn - 1] || '' : '';
+  });
+  return record;
+}
+
+function getIdeaBrainDumpLegacyColumn_(header) {
+  return IDEA_BRAIN_DUMP.legacyPositions[header] || 0;
+}
+
+function attachIdeaBrainDumpRichText_(record, richTextRow, headerMap) {
+  if (!richTextRow) {
+    return;
+  }
+
+  IDEA_BRAIN_DUMP.headers.forEach((header) => {
+    const headerColumn = headerMap[header] || getIdeaBrainDumpLegacyColumn_(header);
+    const richTextValue = headerColumn ? richTextRow[headerColumn - 1] : null;
+    if (!richTextValue || !richTextValueHasLink_(richTextValue)) {
+      return;
+    }
+    record.__richTextByHeader = record.__richTextByHeader || {};
+    record.__richTextByHeader[header] = richTextValue;
+  });
+}
+
+function restoreIdeaBrainDumpRichText_(sheet, records) {
+  const columnMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+  records.forEach((record, rowIndex) => {
+    if (!record.__richTextByHeader) {
+      return;
+    }
+    Object.keys(record.__richTextByHeader).forEach((header) => {
+      if (columnMap[header]) {
+        sheet.getRange(IDEA_BRAIN_DUMP.dataStart + rowIndex, columnMap[header]).setRichTextValue(record.__richTextByHeader[header]);
+      }
+    });
+  });
+}
+
+function richTextValueHasLink_(richTextValue) {
+  if (richTextValue.getLinkUrl && richTextValue.getLinkUrl()) {
+    return true;
+  }
+  return richTextValue.getRuns().some((run) => run.getLinkUrl && run.getLinkUrl());
+}
+
+function ideaBrainDumpRecordHasData_(record) {
+  return [
+    'Idea ID',
+    'Submitted Date',
+    'Submitted By',
+    'Content Pillar',
+    'Format',
+    'Goal',
+    'Idea / Title',
+    'Subject',
+    'Moment / Action',
+    'Inspiration Link',
+    'Notes',
+    'Promoted Content #',
+  ].some((header) => String(record[header] || '').trim());
+}
+
+function rebuildIdeaBrainDumpSurface_(sheet, records) {
+  const headers = IDEA_BRAIN_DUMP.headers;
+  ensureColumns_(sheet, headers.length);
+  ensureRows_(sheet, Math.max(100, IDEA_BRAIN_DUMP.dataStart + records.length + 20));
+  if (sheet.getMaxColumns() > headers.length) {
+    sheet.deleteColumns(headers.length + 1, sheet.getMaxColumns() - headers.length);
+  }
+
+  sheet.clear();
+  sheet.clearFormats();
+  sheet.clearNotes();
+  sheet.clearConditionalFormatRules();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
+  buildIdeaBrainDumpMasthead_(sheet, headers.length);
+  sheet.getRange(IDEA_BRAIN_DUMP.headerRow, 1, 1, headers.length).setValues([headers]);
+
+  if (records.length) {
+    const values = records.map((record, index) => {
+      const nextRecord = Object.assign({}, record);
+      nextRecord['Idea ID'] = nextRecord['Idea ID'] || getGeneratedIdeaId_(index + 1);
+      return headers.map((header) => nextRecord[header] || '');
+    });
+    sheet.getRange(IDEA_BRAIN_DUMP.dataStart, 1, values.length, headers.length).setValues(values);
+    restoreIdeaBrainDumpRichText_(sheet, records);
+  }
+
+  styleIdeaBrainDumpSheet_(sheet);
+}
+
+function buildIdeaBrainDumpMasthead_(sheet, width) {
+  const c = CONTENT_PLANNING_STYLE;
+  sheet.getRange(1, 1, 1, width)
+    .setFontFamily('Roboto Mono')
+    .setFontSize(8)
+    .setFontWeight('bold')
+    .setFontColor(c.muted)
+    .setBackground(c.bg)
+    .setVerticalAlignment('bottom');
+  sheet.getRange(1, 1).setValue('CONTENT OPERATIONS  /  IDEA INTAKE');
+  sheet.getRange(2, 1, 1, width)
+    .setFontFamily('Playfair Display')
+    .setFontSize(22)
+    .setFontWeight('bold')
+    .setFontColor(c.dark)
+    .setBackground(c.bg)
+    .setBorder(null, null, true, null, null, null, c.pink, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  sheet.getRange(2, 1).setValue('3. Idea Brain Dump');
+  sheet.getRange(3, 1, 1, width)
+    .setFontFamily('Inter')
+    .setFontSize(9)
+    .setFontStyle('italic')
+    .setFontColor(c.muted)
+    .setBackground(c.bg);
+  sheet.getRange(3, 1).setValue('Raw idea intake before Brand Manager/Admin promotes selected concepts into 1A. Use workflow dialogs for new ideas and promotion.');
+}
+
+function styleIdeaBrainDumpSheet_(sheet) {
+  const c = CONTENT_PLANNING_STYLE;
+  const width = IDEA_BRAIN_DUMP.headers.length;
+  sheet.getRange(1, 1, sheet.getMaxRows(), width).setBackground(c.bg).setFontFamily('Inter');
+  sheet.getRange(IDEA_BRAIN_DUMP.headerRow, 1, 1, width)
+    .setBackground(c.dark)
+    .setFontFamily('Roboto Mono')
+    .setFontSize(8)
+    .setFontWeight('bold')
+    .setFontColor(c.white)
+    .setWrap(true)
+    .setVerticalAlignment('middle')
+    .setBorder(null, null, true, null, null, null, c.pink, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  sheet.getRange(IDEA_BRAIN_DUMP.dataStart, 1, Math.max(sheet.getMaxRows() - IDEA_BRAIN_DUMP.dataStart + 1, 1), width)
+    .setBackground(c.white)
+    .setFontSize(10)
+    .setFontColor(c.body)
+    .setWrap(true)
+    .setVerticalAlignment('top')
+    .setBorder(true, true, true, true, true, true, c.rule, SpreadsheetApp.BorderStyle.SOLID);
+  ['Idea ID', 'Submitted Date', 'Submitted By', 'Brand Manager Review Status', 'Promote to 1A?', 'Promoted Content #', 'Promoted Timestamp'].forEach((header) => {
+    const columnMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+    if (columnMap[header]) {
+      sheet.getRange(IDEA_BRAIN_DUMP.dataStart, columnMap[header], Math.max(sheet.getMaxRows() - IDEA_BRAIN_DUMP.dataStart + 1, 1), 1)
+        .setBackground(c.inset)
+        .setFontColor(c.muted);
     }
   });
+  applyIdeaBrainDumpColumnWidths_(sheet);
+  sheet.setFrozenRows(IDEA_BRAIN_DUMP.headerRow);
+  sheet.setFrozenColumns(5);
+  sheet.setHiddenGridlines(true);
+  sheet.setRowHeight(1, 22);
+  sheet.setRowHeight(2, 34);
+  sheet.setRowHeight(3, 28);
+  sheet.setRowHeight(IDEA_BRAIN_DUMP.headerRow, 46);
+  if (sheet.getFilter()) {
+    sheet.getFilter().remove();
+  }
+  sheet.getRange(IDEA_BRAIN_DUMP.headerRow, 1, Math.max(sheet.getLastRow() - IDEA_BRAIN_DUMP.headerRow + 1, 1), width).createFilter();
+}
+
+function applyIdeaBrainDumpColumnWidths_(sheet) {
+  const widths = {
+    'Idea ID': 90,
+    'Submitted Date': 115,
+    'Submitted By': 140,
+    'Brand Manager Review Status': 150,
+    'Promote to 1A?': 110,
+    'Content Pillar': 165,
+    Format: 120,
+    Goal: 130,
+    'Idea / Title': 260,
+    Subject: 150,
+    'Moment / Action': 155,
+    'Inspiration Link': 220,
+    Notes: 260,
+    'Promoted Content #': 155,
+    'Promoted Timestamp': 150,
+  };
+  const columnMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+  Object.keys(columnMap).forEach((header) => {
+    sheet.setColumnWidth(columnMap[header], widths[header] || 120);
+  });
+}
+
+function applyIdeaBrainDumpValidations_(spreadsheet, sheet) {
+  const columnMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+  const rowCount = Math.max(sheet.getMaxRows() - IDEA_BRAIN_DUMP.dataStart + 1, 1);
+  applyWarningValidationToColumnForStart_(sheet, columnMap['Content Pillar'], IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Content Pillars')));
+  applyWarningValidationToColumnForStart_(sheet, columnMap.Format, IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Formats')));
+  applyWarningValidationToColumnForStart_(sheet, columnMap.Goal, IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Goals')));
+  applyValidationToColumnForStart_(sheet, columnMap.Subject, IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Subjects')), true);
+  applyValidationToColumnForStart_(sheet, columnMap['Moment / Action'], IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Moment Actions')), true);
+  applyValidationToColumnForStart_(sheet, columnMap['Brand Manager Review Status'], IDEA_BRAIN_DUMP.dataStart, rowCount, ['Needs Review', 'Reviewed', 'Promoted', 'Backlog']);
+  if (columnMap['Promote to 1A?']) {
+    sheet.getRange(IDEA_BRAIN_DUMP.dataStart, columnMap['Promote to 1A?'], rowCount, 1).insertCheckboxes();
+  }
+}
+
+function isIdeaBrainDumpSchemaCurrent_(sheet) {
+  const headerMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+  return IDEA_BRAIN_DUMP.headers.every((header, index) => headerMap[header] === index + 1);
+}
+
+function writeIdeaBrainDumpValues_(sheet, row, columnMap, valuesByHeader) {
+  Object.keys(valuesByHeader).forEach((header) => {
+    if (columnMap[header]) {
+      sheet.getRange(row, columnMap[header]).setValue(valuesByHeader[header]);
+    }
+  });
+}
+
+function getNextIdeaId_(sheet, columnMap) {
+  if (!columnMap['Idea ID']) {
+    return getGeneratedIdeaId_(1);
+  }
+  const lastRow = Math.max(sheet.getLastRow(), IDEA_BRAIN_DUMP.dataStart);
+  const values = sheet.getRange(IDEA_BRAIN_DUMP.dataStart, columnMap['Idea ID'], Math.max(lastRow - IDEA_BRAIN_DUMP.dataStart + 1, 1), 1).getDisplayValues();
+  const maxId = values.reduce((max, row) => {
+    const match = String(row[0] || '').match(/IDEA-(\d+)/i);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return getGeneratedIdeaId_(maxId + 1);
+}
+
+function getGeneratedIdeaId_(number) {
+  return `IDEA-${String(number).padStart(4, '0')}`;
 }
 
 function findFirstBlankRowByColumn_(sheet, column, firstRow) {
@@ -3439,6 +3733,28 @@ function applyWarningValidationToColumn_(sheet, column, rowCount, sourceRange) {
     .build();
 
   sheet.getRange(PHASE1.rows.contentDataStart, column, rowCount, 1).setDataValidation(rule);
+}
+
+function applyWarningValidationToColumnForStart_(sheet, column, firstRow, rowCount, sourceRange) {
+  applyValidationToColumnForStart_(sheet, column, firstRow, rowCount, sourceRange, true);
+}
+
+function applyValidationToColumnForStart_(sheet, column, firstRow, rowCount, source, allowInvalid) {
+  if (!column || !source) {
+    return;
+  }
+
+  const builder = SpreadsheetApp.newDataValidation();
+  if (Array.isArray(source)) {
+    builder.requireValueInList(source, true);
+  } else {
+    builder.requireValueInRange(source, true);
+  }
+
+  const rule = builder
+    .setAllowInvalid(Boolean(allowInvalid))
+    .build();
+  sheet.getRange(firstRow, column, rowCount, 1).setDataValidation(rule);
 }
 
 function applyCheckboxValidationToColumn_(sheet, column, rowCount) {
