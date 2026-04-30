@@ -212,6 +212,27 @@ const PHASE1 = {
       'Thao',
       'Hillary + Thao',
     ],
+    'Content Pillars': [
+      'Signature Experience',
+      'Process as Luxury',
+      'Subtle Differentiation',
+      'Product as Outcome',
+      'Aesthetic Brand Content',
+      'Hook-Based Insight',
+    ],
+    Formats: [
+      'Reel',
+      'Carousel',
+      'Static Post',
+      'Story',
+      'Short Form Video',
+    ],
+    Goals: [
+      'Awareness',
+      'Education',
+      'Engagement',
+      'Conversion',
+    ],
     Brands: [
       'HP',
       'VVS',
@@ -409,6 +430,7 @@ const DUAL_BRAND_SETS = {
 const DUAL_BRAND_GROUPED_STATUSES = ['Planned', 'Assigned to Film'];
 const STRICT_WORKFLOW_CONFIG_LISTS = [
   'Statuses',
+  'Content Pillars',
   'Brands',
   'Dual Brand Sets',
   'Original / Companion',
@@ -1527,9 +1549,9 @@ function getWorkflowOptions_(spreadsheet) {
     priorities: getConfigListValues_(spreadsheet, 'Priorities'),
     subjects: getConfigListValues_(spreadsheet, 'Subjects'),
     momentActions: getConfigListValues_(spreadsheet, 'Moment Actions'),
-    contentPillars: getSettingsColumnValues_(spreadsheet, 3, 12),
-    formats: getSettingsColumnValues_(spreadsheet, 7, 12),
-    goals: getSettingsColumnValues_(spreadsheet, 11, 12),
+    contentPillars: getConfigListValues_(spreadsheet, 'Content Pillars'),
+    formats: getConfigListValues_(spreadsheet, 'Formats'),
+    goals: getConfigListValues_(spreadsheet, 'Goals'),
     reviewDecisions: ['Approve', 'Request Revision'],
   };
 }
@@ -2446,11 +2468,12 @@ function checkboxField_(name, label, required) {
 
 function ensureWorkflowSettings_(spreadsheet) {
   const sheet = requireSheet_(spreadsheet, PHASE1.sheets.settings);
-  const blockStart = findOrCreateWorkflowConfigBlock_(sheet);
+  const existingValuesByTitle = getExistingWorkflowSettingsValues_(sheet);
+  const legacyValuesByTitle = getLegacySettingsValues_(sheet);
+  const blockStart = rebuildWorkflowSettingsSurface_(sheet);
   const titles = Object.keys(PHASE1.configLists);
   const valuesByTitle = titles.reduce((map, title, offset) => {
-    const column = blockStart.column + offset;
-    const existingValues = getWorkflowConfigColumnValues_(sheet, blockStart.row + 1, column);
+    const existingValues = (existingValuesByTitle[title] || []).concat(legacyValuesByTitle[title] || []);
     map[title] = mergeWorkflowConfigValues_(title, PHASE1.configLists[title], existingValues);
     return map;
   }, {});
@@ -2473,15 +2496,133 @@ function ensureWorkflowSettings_(spreadsheet) {
     upsertNamedRange_(spreadsheet, configRangeName_(title), namedRange);
   });
 
-  sheet.getRange(blockStart.row - 1, blockStart.column)
-    .setValue(PHASE1.workflowConfigTitle)
-    .setFontWeight('bold');
-  sheet.autoResizeColumns(blockStart.column, titles.length);
+  styleWorkflowSettingsSheet_(sheet, blockStart, titles, maxListLength);
 
   return titles.reduce((ranges, title) => {
     ranges[title] = spreadsheet.getRangeByName(configRangeName_(title));
     return ranges;
   }, {});
+}
+
+function getLegacySettingsValues_(sheet) {
+  return {
+    'Content Pillars': getSettingsColumnValuesFromSheet_(sheet, 3, 12),
+    Formats: getSettingsColumnValuesFromSheet_(sheet, 7, 12),
+    Goals: getSettingsColumnValuesFromSheet_(sheet, 11, 12),
+  };
+}
+
+function getSettingsColumnValuesFromSheet_(sheet, column, firstRow) {
+  if (column > sheet.getMaxColumns()) {
+    return [];
+  }
+  const rowCount = Math.max(sheet.getLastRow() - firstRow + 1, 1);
+  return uniqueNonEmpty_(sheet.getRange(firstRow, column, rowCount, 1).getDisplayValues().flat());
+}
+
+function getExistingWorkflowSettingsValues_(sheet) {
+  const titleFinder = sheet.createTextFinder(PHASE1.workflowConfigTitle)
+    .matchCase(false)
+    .matchEntireCell(true);
+  const titleCell = titleFinder.findNext();
+  if (!titleCell) {
+    return {};
+  }
+
+  const headerRow = titleCell.getRow() + 1;
+  const firstColumn = titleCell.getColumn();
+  const width = Math.max(sheet.getLastColumn() - firstColumn + 1, 1);
+  const headers = sheet.getRange(headerRow, firstColumn, 1, width).getDisplayValues()[0];
+  return headers.reduce((map, title, index) => {
+    const cleanTitle = String(title || '').trim();
+    if (cleanTitle) {
+      map[cleanTitle] = getWorkflowConfigColumnValues_(sheet, headerRow + 1, firstColumn + index);
+    }
+    return map;
+  }, {});
+}
+
+function rebuildWorkflowSettingsSurface_(sheet) {
+  const titles = Object.keys(PHASE1.configLists);
+  ensureColumns_(sheet, titles.length);
+  ensureRows_(sheet, 80);
+  if (sheet.getMaxColumns() > titles.length) {
+    sheet.deleteColumns(titles.length + 1, sheet.getMaxColumns() - titles.length);
+  }
+
+  sheet.clear();
+  sheet.clearFormats();
+  sheet.clearNotes();
+  sheet.clearConditionalFormatRules();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
+  return { row: 5, column: 1 };
+}
+
+function styleWorkflowSettingsSheet_(sheet, blockStart, titles, maxListLength) {
+  const c = CONTENT_PLANNING_STYLE;
+  const width = titles.length;
+  const bodyRows = Math.max(maxListLength, 1);
+  sheet.getRange(1, 1, sheet.getMaxRows(), width).setBackground(c.bg).setFontFamily('Inter');
+
+  sheet.getRange(1, 1, 1, width).merge()
+    .setValue('CONTENT OPERATIONS  /  WORKFLOW CONFIG')
+    .setFontFamily('Roboto Mono')
+    .setFontSize(8)
+    .setFontWeight('bold')
+    .setFontColor(c.muted)
+    .setBackground(c.bg)
+    .setVerticalAlignment('bottom');
+  sheet.getRange(2, 1, 1, width).merge()
+    .setValue('5. Settings')
+    .setFontFamily('Playfair Display')
+    .setFontSize(22)
+    .setFontWeight('bold')
+    .setFontColor(c.dark)
+    .setBackground(c.bg)
+    .setBorder(null, null, true, null, null, null, c.pink, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  sheet.getRange(3, 1, 1, width).merge()
+    .setValue('Live reference lists for workflow dropdowns and data validation. Update values here, then rerun Phase 1 Setup to refresh validations.')
+    .setFontFamily('Inter')
+    .setFontSize(9)
+    .setFontStyle('italic')
+    .setFontColor(c.muted)
+    .setBackground(c.bg);
+  sheet.getRange(4, 1, 1, width).merge()
+    .setValue(PHASE1.workflowConfigTitle)
+    .setFontFamily('Roboto Mono')
+    .setFontSize(8)
+    .setFontWeight('bold')
+    .setFontColor(c.white)
+    .setBackground(c.dark)
+    .setBorder(null, null, true, null, null, null, c.pink, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  sheet.getRange(blockStart.row, blockStart.column, 1, width)
+    .setBackground(c.surface)
+    .setFontFamily('Roboto Mono')
+    .setFontSize(8)
+    .setFontWeight('bold')
+    .setFontColor(c.dark)
+    .setWrap(true)
+    .setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, true, false, c.rule, SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(blockStart.row + 1, blockStart.column, bodyRows, width)
+    .setBackground(c.white)
+    .setFontSize(10)
+    .setFontColor(c.body)
+    .setWrap(true)
+    .setVerticalAlignment('top')
+    .setBorder(true, true, true, true, true, true, c.rule, SpreadsheetApp.BorderStyle.SOLID);
+  sheet.setFrozenRows(blockStart.row);
+  sheet.setHiddenGridlines(true);
+  sheet.setRowHeight(1, 22);
+  sheet.setRowHeight(2, 34);
+  sheet.setRowHeight(3, 28);
+  sheet.setRowHeight(4, 28);
+  sheet.setRowHeight(blockStart.row, 46);
+  sheet.autoResizeColumns(1, width);
+  for (let column = 1; column <= width; column += 1) {
+    sheet.setColumnWidth(column, Math.max(sheet.getColumnWidth(column), 130));
+  }
 }
 
 function getWorkflowConfigColumnValues_(sheet, firstRow, column) {
@@ -2993,7 +3134,7 @@ function buildCalendarEventText_(record, eventType) {
   if (eventType === 'posting') {
     return [
       record.status || 'No status',
-      record.Time || '',
+      formatCalendarTime_(record.Time),
       `[${record.contentId}]`,
       record.Brand || '',
       record['Platform(s)'] || '',
@@ -3036,6 +3177,35 @@ function calendarDateKey_(dateValue) {
 function truncateForCalendar_(value) {
   const text = String(value || '').trim();
   return text.length > 90 ? `${text.slice(0, 87)}...` : text;
+}
+
+function formatCalendarTime_(value) {
+  if (!value) {
+    return '';
+  }
+  if (Object.prototype.toString.call(value) === '[object Date]' && !Number.isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'h:mm a');
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const milliseconds = Math.round(value * 24 * 60 * 60 * 1000);
+    return Utilities.formatDate(new Date(milliseconds), 'UTC', 'h:mm a');
+  }
+
+  const text = String(value).trim();
+  const timeMatch = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)?$/i);
+  if (!timeMatch) {
+    return text;
+  }
+  let hour = Number(timeMatch[1]);
+  const minute = timeMatch[2];
+  const suffix = timeMatch[3] ? timeMatch[3].toUpperCase() : hour >= 12 ? 'PM' : 'AM';
+  if (!timeMatch[3] && hour > 12) {
+    hour -= 12;
+  }
+  if (hour === 0) {
+    hour = 12;
+  }
+  return `${hour}:${minute} ${suffix}`;
 }
 
 function safeGetDisplayValue_(sheet, row, column) {
@@ -3145,6 +3315,9 @@ function applyWorkflowValidations_(spreadsheet, columnMap, configRanges) {
   applyValidationToColumn_(sheet, columnMap['Assigned Filmer(s)'], validationRowCount, configRanges['Filmer Assignment Values']);
   applyValidationToColumn_(sheet, columnMap['Assigned Editor'], validationRowCount, configRanges['Team Members']);
   applyValidationToColumn_(sheet, columnMap['Assigned Reviewer'], validationRowCount, configRanges['Team Members']);
+  applyWarningValidationToColumn_(sheet, columnMap['Content Pillar'], validationRowCount, configRanges['Content Pillars']);
+  applyWarningValidationToColumn_(sheet, columnMap.Format, validationRowCount, configRanges.Formats);
+  applyWarningValidationToColumn_(sheet, columnMap.Goal, validationRowCount, configRanges.Goals);
   applyValidationToColumn_(sheet, columnMap.Brand, validationRowCount, configRanges.Brands);
   applyValidationToColumn_(sheet, columnMap['Dual Brand Set'], validationRowCount, configRanges['Dual Brand Sets']);
   applyValidationToColumn_(sheet, columnMap['Original / Companion'], validationRowCount, configRanges['Original / Companion']);
@@ -3238,6 +3411,19 @@ function applyValidationToColumn_(sheet, column, rowCount, sourceRange) {
   const rule = SpreadsheetApp.newDataValidation()
     .requireValueInRange(sourceRange, true)
     .setAllowInvalid(false)
+    .build();
+
+  sheet.getRange(PHASE1.rows.contentDataStart, column, rowCount, 1).setDataValidation(rule);
+}
+
+function applyWarningValidationToColumn_(sheet, column, rowCount, sourceRange) {
+  if (!column || !sourceRange) {
+    return;
+  }
+
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInRange(sourceRange, true)
+    .setAllowInvalid(true)
     .build();
 
   sheet.getRange(PHASE1.rows.contentDataStart, column, rowCount, 1).setDataValidation(rule);
