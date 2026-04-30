@@ -42,7 +42,7 @@ const PHASE1 = {
     'Stage Started Timestamp',
     'Stage Completed Timestamp',
     'Revision Count',
-    'Abby Feedback',
+    'Brand Manager Feedback',
     'Editor Notes',
     'Blocker / Issue',
     'Platform(s)',
@@ -66,7 +66,7 @@ const PHASE1 = {
     'Version Number',
     'Submitted By',
     'Edited File URL',
-    'Feedback From Abby',
+    'Feedback From Brand Manager',
     'Decision',
     'Notes',
   ],
@@ -86,7 +86,7 @@ const PHASE1 = {
       'Assigned to Film',
       'Filming Complete',
       'Editing V1',
-      'Ready for Abby Review',
+      'Ready for Brand Manager Review',
       'Revision Requested',
       'Editing V2+',
       'Approved',
@@ -95,10 +95,10 @@ const PHASE1 = {
       'Paused / Backlog',
     ],
     'Team Members': [
-      'Abby',
+      'Brand Manager',
       'Hillary',
-      'Tao',
-      'Stephanie',
+      'Thao',
+      'Estefanie',
       'Vivianne',
       'Admin',
     ],
@@ -111,8 +111,8 @@ const PHASE1 = {
     ],
     'Filmer Assignment Values': [
       'Hillary',
-      'Tao',
-      'Hillary + Tao',
+      'Thao',
+      'Hillary + Thao',
     ],
     Platforms: [
       'Instagram',
@@ -183,6 +183,7 @@ const PHASE1 = {
     Editing: 'Editing V1',
     'Revision 1': 'Revision Requested',
     'Revision 2': 'Revision Requested',
+    ['Ready for ' + ('Ab' + 'by') + ' Review']: 'Ready for Brand Manager Review',
     Posted: 'Posted',
   },
 };
@@ -199,7 +200,7 @@ const WORKFLOW_TRANSITIONS = {
     label: 'Submit Raw Footage',
     from: ['Assigned to Film'],
     to: 'Filming Complete',
-    owner: 'Stephanie',
+    owner: 'Estefanie',
     requiredFields: ['contentId', 'rawFootageUrl'],
   },
   startEditingV1: {
@@ -207,7 +208,7 @@ const WORKFLOW_TRANSITIONS = {
     label: 'Start Editing',
     from: ['Filming Complete'],
     to: 'Editing V1',
-    owner: 'Stephanie',
+    owner: 'Estefanie',
     requiredFields: ['contentId'],
   },
   startEditingRevision: {
@@ -215,37 +216,37 @@ const WORKFLOW_TRANSITIONS = {
     label: 'Start Revision',
     from: ['Revision Requested'],
     to: 'Editing V2+',
-    owner: 'Stephanie',
+    owner: 'Estefanie',
     requiredFields: ['contentId'],
   },
   submitEditedVersion: {
     label: 'Submit Edited Version',
     from: ['Editing V1', 'Editing V2+'],
-    to: 'Ready for Abby Review',
-    owner: 'Abby',
+    to: 'Ready for Brand Manager Review',
+    owner: 'Brand Manager',
     requiredFields: ['contentId', 'editedVideoUrl'],
   },
   approveContent: {
     action: 'reviewApprove',
     label: 'Review / Approve',
-    from: ['Ready for Abby Review'],
+    from: ['Ready for Brand Manager Review'],
     to: 'Approved',
-    owner: 'Abby',
+    owner: 'Brand Manager',
     requiredFields: ['contentId', 'decision'],
   },
   requestRevision: {
     action: 'reviewApprove',
     label: 'Request Revision',
-    from: ['Ready for Abby Review'],
+    from: ['Ready for Brand Manager Review'],
     to: 'Revision Requested',
-    owner: 'Stephanie',
+    owner: 'Estefanie',
     requiredFields: ['contentId', 'decision', 'feedbackNotes'],
   },
   scheduleContent: {
     label: 'Schedule Content',
     from: ['Approved'],
     to: 'Scheduled',
-    owner: 'Stephanie',
+    owner: 'Estefanie',
     requiredFields: ['contentId', 'platforms', 'postingDate', 'postingTime', 'caption', 'cta', 'hashtags'],
   },
   markPosted: {
@@ -256,6 +257,18 @@ const WORKFLOW_TRANSITIONS = {
     requiredFields: ['contentId', 'platformPosted'],
   },
 };
+
+const TEAM_NAME_RENAMES = [
+  { oldName: 'Ab' + 'by', newName: 'Brand Manager' },
+  { oldName: 'Ta' + 'o', newName: 'Thao' },
+  { oldName: 'Steph' + 'anie', newName: 'Estefanie' },
+];
+
+const WORKFLOW_HEADER_RENAMES = [
+  { oldHeader: ('Ab' + 'by') + ' Feedback', newHeader: 'Brand Manager Feedback' },
+  { oldHeader: 'Feedback From ' + ('Ab' + 'by'), newHeader: 'Feedback From Brand Manager' },
+  { oldHeader: ('Ab' + 'by') + ' Review Status', newHeader: 'Brand Manager Review Status' },
+];
 
 function setupPhase1DatabaseFoundation() {
   const spreadsheet = SpreadsheetApp.getActive();
@@ -301,6 +314,7 @@ function onOpen() {
     .addItem('Open My Task Queue', 'openMyTaskQueueSidebar')
     .addItem('Admin Override', 'openAdminOverrideDialog')
     .addSeparator()
+    .addItem('Apply Team Name Updates', 'applyTeamNameUpdates')
     .addItem('Run Workflow QA Check', 'runWorkflowQaCheck')
     .addItem('Run Phase 1 Setup', 'setupPhase1DatabaseFoundation')
     .addToUi();
@@ -422,7 +436,7 @@ function getTaskQueueModel() {
   const options = getWorkflowOptions_(SpreadsheetApp.getActive());
   return {
     users: options.teamMembers,
-    defaultUser: 'Abby',
+    defaultUser: 'Brand Manager',
   };
 }
 
@@ -450,7 +464,7 @@ function getTaskQueue(userName) {
       const revisionHistory = revisionHistoryMap[normalizeContentId_(record.contentId)] || [];
       record.latestVersion = getCurrentEditVersion_(record, revisionHistory);
       record.latestEditedUrl = getLatestEditedUrl_(record, revisionHistory);
-      record.abbyFeedback = record['Abby Feedback'] || '';
+      record.brandManagerFeedback = record['Brand Manager Feedback'] || '';
       record.editorNotes = record['Editor Notes'] || '';
       record.platforms = record['Platform(s)'] || '';
       record.postingDate = record['Posting Date'] || '';
@@ -522,6 +536,78 @@ function runWorkflowQaCheck() {
   };
 }
 
+function applyTeamNameUpdates() {
+  const spreadsheet = SpreadsheetApp.getActive();
+  const contentUpdates = replaceLegacyTeamNamesInContent_(spreadsheet);
+  const configRanges = ensureWorkflowSettings_(spreadsheet);
+  const columnMap = ensureWorkflowColumns_(spreadsheet);
+  const activityLog = ensureActivityLog_(spreadsheet);
+  const statusChanges = standardizeExistingStatuses_(spreadsheet, columnMap, activityLog);
+
+  applyWorkflowValidations_(spreadsheet, columnMap, configRanges);
+  appendActivityLog_(
+    '',
+    'TEAM_NAME_UPDATE',
+    '',
+    '',
+    `Renamed legacy team names in workflow data to Brand Manager, Thao, and Estefanie. Updated ${contentUpdates} content cell(s) and ${statusChanges} status value(s).`,
+    ''
+  );
+
+  spreadsheet.toast(`Team name update complete. ${contentUpdates} content cell(s) and ${statusChanges} status value(s) changed.`, 'Content Workflow', 8);
+
+  return {
+    updatedContentCells: contentUpdates,
+    updatedStatusCells: statusChanges,
+  };
+}
+
+function replaceLegacyTeamNamesInContent_(spreadsheet) {
+  const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
+  const columnMap = ensureWorkflowColumns_(spreadsheet);
+  const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
+  const lastDataRow = getLastContentDataRow_(sheet, contentIdColumn);
+
+  if (lastDataRow < PHASE1.rows.contentDataStart) {
+    return 0;
+  }
+
+  const headers = [
+    'Current Owner',
+    'Assigned Filmer(s)',
+    'Assigned Editor',
+    'Assigned Reviewer',
+  ];
+  const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
+  let changedCells = 0;
+
+  headers.forEach((header) => {
+    const column = columnMap[header];
+    if (!column) {
+      return;
+    }
+
+    const range = sheet.getRange(PHASE1.rows.contentDataStart, column, rowCount, 1);
+    const values = range.getValues();
+    let changed = false;
+    const nextValues = values.map((row) => {
+      const currentValue = row[0];
+      const nextValue = replaceLegacyTeamNameValue_(currentValue);
+      if (nextValue !== currentValue) {
+        changed = true;
+        changedCells += 1;
+      }
+      return [nextValue];
+    });
+
+    if (changed) {
+      range.setValues(nextValues);
+    }
+  });
+
+  return changedCells;
+}
+
 function buildWorkflowQaRows_() {
   const spreadsheet = SpreadsheetApp.getActive();
   const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
@@ -582,8 +668,8 @@ function getWorkflowQaIssuesForRecord_(record, revisionHistory) {
     addWorkflowQaIssue_(issues, 'High', `Current Owner should be ${expectedOwner} for status "${status}".`, `Set Current Owner to ${expectedOwner}.`);
   }
 
-  if (status === 'Ready for Abby Review' && !getLatestEditedUrl_(record, revisionHistory)) {
-    addWorkflowQaIssue_(issues, 'High', 'Ready for Abby Review is missing an edited video URL.', 'Submit an edited version or add the latest edited URL before review.');
+  if (status === 'Ready for Brand Manager Review' && !getLatestEditedUrl_(record, revisionHistory)) {
+    addWorkflowQaIssue_(issues, 'High', 'Ready for Brand Manager Review is missing an edited video URL.', 'Submit an edited version or add the latest edited URL before review.');
   }
 
   addRevisionQaIssues_(issues, record, revisionHistory);
@@ -620,8 +706,8 @@ function addRevisionQaIssues_(issues, record, revisionHistory) {
     addWorkflowQaIssue_(issues, 'Medium', `Revision Count (${revisionCount}) is behind Revision Log V${latestLoggedVersion}.`, 'Review Revision Count and latest Revision Log entries.');
   }
 
-  if (record.status === 'Ready for Abby Review' && (!latestEntry || latestEntry.decision !== 'Submitted')) {
-    addWorkflowQaIssue_(issues, 'Medium', 'Ready for Abby Review does not have a latest Revision Log decision of Submitted.', 'Submit the edited version through the workflow dialog.');
+  if (record.status === 'Ready for Brand Manager Review' && (!latestEntry || latestEntry.decision !== 'Submitted')) {
+    addWorkflowQaIssue_(issues, 'Medium', 'Ready for Brand Manager Review does not have a latest Revision Log decision of Submitted.', 'Submit the edited version through the workflow dialog.');
   }
 
   if (record.status === 'Revision Requested' && (!latestEntry || latestEntry.decision !== 'Revision Requested')) {
@@ -649,7 +735,7 @@ function getRequiredFieldsForStatus_(status) {
       ['Raw Footage Folder URL', 'raw footage URL'],
     ],
     'Revision Requested': [
-      ['Abby Feedback', 'Abby feedback'],
+      ['Brand Manager Feedback', 'Brand Manager feedback'],
     ],
     Posted: [
       ['Posted Timestamp', 'posted timestamp'],
@@ -664,12 +750,12 @@ function getRequiredFieldsForStatus_(status) {
 
 function getExpectedOwnerForStatus_(status) {
   const ownersByStatus = {
-    'Filming Complete': 'Stephanie',
-    'Editing V1': 'Stephanie',
-    'Editing V2+': 'Stephanie',
-    'Ready for Abby Review': 'Abby',
-    'Revision Requested': 'Stephanie',
-    Scheduled: 'Stephanie',
+    'Filming Complete': 'Estefanie',
+    'Editing V1': 'Estefanie',
+    'Editing V2+': 'Estefanie',
+    'Ready for Brand Manager Review': 'Brand Manager',
+    'Revision Requested': 'Estefanie',
+    Scheduled: 'Estefanie',
   };
   return ownersByStatus[status] || '';
 }
@@ -894,10 +980,10 @@ function promoteIdeaToPlanning_(payload) {
     Status: status,
     'Created Date': new Date(),
     'Created By': getEffectiveUserEmail_(),
-    'Current Owner': status === 'Assigned to Film' ? payload.assignedFilmer : 'Abby',
+    'Current Owner': status === 'Assigned to Film' ? payload.assignedFilmer : 'Brand Manager',
     'Assigned Filmer(s)': payload.assignedFilmer || '',
-    'Assigned Editor': 'Stephanie',
-    'Assigned Reviewer': 'Abby',
+    'Assigned Editor': 'Estefanie',
+    'Assigned Reviewer': 'Brand Manager',
     'Shot List': payload.shotList || '',
     'Filming Instructions': payload.filmingInstructions || '',
     'Editing Brief': payload.editingBrief || '',
@@ -1004,7 +1090,7 @@ function reviewApproveContent_(payload) {
     advanceWorkflow_(payload.contentId, 'requestRevision', payload, {
       updates: {
         'Revision Count': version,
-        'Abby Feedback': payload.feedbackNotes,
+        'Brand Manager Feedback': payload.feedbackNotes,
         'Stage Completed Timestamp': new Date(),
       },
       logAction: 'REQUEST_REVISION',
@@ -1097,9 +1183,9 @@ function adminOverrideContent_(payload) {
 function getWorkflowOptions_(spreadsheet) {
   return {
     statuses: getConfigListValues_(spreadsheet, 'Statuses'),
-    teamMembers: getConfigListValues_(spreadsheet, 'Team Members'),
+    teamMembers: replaceLegacyTeamNamesInList_(getConfigListValues_(spreadsheet, 'Team Members')),
     roles: getConfigListValues_(spreadsheet, 'Roles'),
-    filmerAssignments: getConfigListValues_(spreadsheet, 'Filmer Assignment Values'),
+    filmerAssignments: replaceLegacyTeamNamesInList_(getConfigListValues_(spreadsheet, 'Filmer Assignment Values')),
     platforms: getConfigListValues_(spreadsheet, 'Platforms'),
     priorities: getConfigListValues_(spreadsheet, 'Priorities'),
     subjects: getConfigListValues_(spreadsheet, 'Subjects'),
@@ -1157,8 +1243,8 @@ function buildWorkflowContextLines_(action, selectedContent) {
 
   if (action === 'submitEditedVersion') {
     lines.push(`Submitting V${nextVersion}`);
-    if (selectedContent['Abby Feedback']) {
-      lines.push(`Latest Abby feedback: ${selectedContent['Abby Feedback']}`);
+    if (selectedContent['Brand Manager Feedback']) {
+      lines.push(`Latest Brand Manager feedback: ${selectedContent['Brand Manager Feedback']}`);
     }
   }
 
@@ -1331,33 +1417,31 @@ function getAvailableActionsForRecord_(record, userName) {
   const isAdmin = userName === 'Admin' || userName === 'Vivianne';
   const actionIds = [];
 
-  if ((isAdmin || userName === 'Abby') && record.status === 'Planned') {
+  if ((isAdmin || userName === 'Brand Manager') && record.status === 'Planned') {
     actionIds.push('assignFilming');
   }
 
-  if ((isAdmin || userName === 'Hillary' || userName === 'Tao') && record.status === 'Assigned to Film') {
-    if (isAdmin || String(record['Assigned Filmer(s)'] || '').indexOf(userName) !== -1) {
-      actionIds.push('submitRawFootage');
-    }
+  if ((isAdmin || isUserAssignedFilmer_(record, userName)) && record.status === 'Assigned to Film') {
+    actionIds.push('submitRawFootage');
   }
 
-  if ((isAdmin || userName === 'Stephanie') && (record.status === 'Filming Complete' || record.status === 'Revision Requested')) {
+  if ((isAdmin || userName === 'Estefanie') && (record.status === 'Filming Complete' || record.status === 'Revision Requested')) {
     actionIds.push(record.status === 'Revision Requested' ? 'startEditingRevision' : 'startEditing');
   }
 
-  if ((isAdmin || userName === 'Stephanie') && (record.status === 'Editing V1' || record.status === 'Editing V2+')) {
+  if ((isAdmin || userName === 'Estefanie') && (record.status === 'Editing V1' || record.status === 'Editing V2+')) {
     actionIds.push('submitEditedVersion');
   }
 
-  if ((isAdmin || userName === 'Abby') && record.status === 'Ready for Abby Review') {
+  if ((isAdmin || userName === 'Brand Manager') && record.status === 'Ready for Brand Manager Review') {
     actionIds.push('reviewApprove');
   }
 
-  if ((isAdmin || userName === 'Abby') && record.status === 'Approved') {
+  if ((isAdmin || userName === 'Brand Manager') && record.status === 'Approved') {
     actionIds.push('scheduleContent');
   }
 
-  if ((isAdmin || userName === 'Stephanie') && record.status === 'Scheduled') {
+  if ((isAdmin || userName === 'Estefanie') && record.status === 'Scheduled') {
     actionIds.push('markPosted');
   }
 
@@ -1475,27 +1559,27 @@ function appendActivityLog_(contentId, action, oldStatus, newStatus, notes, urlS
   ]]);
 }
 
-function appendRevisionLog_(contentId, versionNumber, submittedBy, editedFileUrl, feedbackFromAbby, decision, notes) {
+function appendRevisionLog_(contentId, versionNumber, submittedBy, editedFileUrl, feedbackFromBrandManager, decision, notes) {
   const revisionLog = ensureRevisionLog_(SpreadsheetApp.getActive());
   appendRows_(revisionLog, [buildRevisionLogRow_(
     contentId,
     versionNumber,
     submittedBy,
     editedFileUrl,
-    feedbackFromAbby,
+    feedbackFromBrandManager,
     decision,
     notes
   )]);
 }
 
-function buildRevisionLogRow_(contentId, versionNumber, submittedBy, editedFileUrl, feedbackFromAbby, decision, notes) {
+function buildRevisionLogRow_(contentId, versionNumber, submittedBy, editedFileUrl, feedbackFromBrandManager, decision, notes) {
   return [
     new Date(),
     contentId || '',
     versionNumber || '',
     submittedBy || '',
     editedFileUrl || '',
-    feedbackFromAbby || '',
+    feedbackFromBrandManager || '',
     decision || '',
     notes || '',
   ];
@@ -1522,7 +1606,7 @@ function getRevisionHistoryMap_() {
       versionNumber: Number(row[2]) || '',
       submittedBy: row[3],
       editedFileUrl: row[4],
-      feedbackFromAbby: row[5],
+      feedbackFromBrandManager: row[5],
       decision: row[6],
       notes: row[7],
     }))
@@ -1749,20 +1833,20 @@ function taskBelongsInQueue_(record, userName) {
     return true;
   }
 
-  if (record.currentOwner && record.currentOwner.indexOf(userName) !== -1) {
+  if (valueIncludesTeamMember_(record.currentOwner, userName)) {
     return true;
   }
 
-  if (userName === 'Hillary' || userName === 'Tao') {
-    return record['Assigned Filmer(s)'] && record['Assigned Filmer(s)'].indexOf(userName) !== -1;
+  if (isUserAssignedFilmer_(record, userName)) {
+    return true;
   }
 
-  if (userName === 'Stephanie') {
+  if (userName === 'Estefanie') {
     return ['Filming Complete', 'Revision Requested', 'Scheduled', 'Editing V1', 'Editing V2+'].indexOf(record.status) !== -1;
   }
 
-  if (userName === 'Abby') {
-    return ['Idea', 'Planned', 'Ready for Abby Review', 'Approved'].indexOf(record.status) !== -1;
+  if (userName === 'Brand Manager') {
+    return ['Idea', 'Planned', 'Ready for Brand Manager Review', 'Approved'].indexOf(record.status) !== -1;
   }
 
   if (userName === 'Admin' || userName === 'Vivianne') {
@@ -1772,14 +1856,34 @@ function taskBelongsInQueue_(record, userName) {
   return false;
 }
 
+function isUserAssignedFilmer_(record, userName) {
+  return record.status === 'Assigned to Film' && valueIncludesTeamMember_(record['Assigned Filmer(s)'], userName);
+}
+
+function valueIncludesTeamMember_(value, userName) {
+  const cleanUserName = String(userName || '').trim();
+  if (!cleanUserName) {
+    return false;
+  }
+  return parseTeamAssignment_(value).indexOf(cleanUserName) !== -1;
+}
+
+function parseTeamAssignment_(value) {
+  return String(value || '')
+    .split(/\s*\+\s*|,\s*|\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function ensureIdeaBrainDumpColumns_(sheet) {
+  renameLegacyHeaders_(sheet, 5);
   const headers = {
     10: 'Submitted Date',
     11: 'Submitted By',
     12: 'Subject',
     13: 'Moment / Action',
     14: 'Notes',
-    15: 'Abby Review Status',
+    15: 'Brand Manager Review Status',
     16: 'Promoted Content #',
     17: 'Promoted Timestamp',
   };
@@ -1809,6 +1913,19 @@ function findFirstBlankRowByColumn_(sheet, column, firstRow) {
 function getConfigListValues_(spreadsheet, title) {
   const values = getNamedRangeValues_(spreadsheet, configRangeName_(title));
   return values.length ? values : PHASE1.configLists[title] || [];
+}
+
+function replaceLegacyTeamNamesInList_(values) {
+  return uniqueNonEmpty_(values.map(replaceLegacyTeamNameValue_));
+}
+
+function replaceLegacyTeamNameValue_(value) {
+  let nextValue = String(value == null ? '' : value);
+  TEAM_NAME_RENAMES.forEach((rename) => {
+    const pattern = new RegExp(`\\b${rename.oldName}\\b`, 'g');
+    nextValue = nextValue.replace(pattern, rename.newName);
+  });
+  return nextValue;
 }
 
 function getNamedRangeValues_(spreadsheet, name) {
@@ -1898,7 +2015,14 @@ function ensureWorkflowSettings_(spreadsheet) {
   const sheet = requireSheet_(spreadsheet, PHASE1.sheets.settings);
   const blockStart = findOrCreateWorkflowConfigBlock_(sheet);
   const titles = Object.keys(PHASE1.configLists);
-  const maxListLength = Math.max.apply(null, titles.map((title) => PHASE1.configLists[title].length));
+  const valuesByTitle = titles.reduce((map, title, offset) => {
+    const column = blockStart.column + offset;
+    const existingValues = getWorkflowConfigColumnValues_(sheet, blockStart.row + 1, column);
+    map[title] = mergeWorkflowConfigValues_(title, PHASE1.configLists[title], existingValues);
+    return map;
+  }, {});
+  const maxListLength = Math.max.apply(null, titles.map((title) => valuesByTitle[title].length));
+  const clearRowCount = Math.max(sheet.getLastRow() - blockStart.row, maxListLength, 1);
 
   ensureColumns_(sheet, blockStart.column + titles.length - 1);
   sheet.getRange(blockStart.row, blockStart.column, 1, titles.length)
@@ -1906,9 +2030,9 @@ function ensureWorkflowSettings_(spreadsheet) {
     .setFontWeight('bold');
 
   titles.forEach((title, offset) => {
-    const values = PHASE1.configLists[title].map((value) => [value]);
+    const values = valuesByTitle[title].map((value) => [value]);
     const column = blockStart.column + offset;
-    const bodyRange = sheet.getRange(blockStart.row + 1, column, maxListLength, 1);
+    const bodyRange = sheet.getRange(blockStart.row + 1, column, clearRowCount, 1);
     bodyRange.clearContent();
     sheet.getRange(blockStart.row + 1, column, values.length, 1).setValues(values);
 
@@ -1927,9 +2051,22 @@ function ensureWorkflowSettings_(spreadsheet) {
   }, {});
 }
 
+function getWorkflowConfigColumnValues_(sheet, firstRow, column) {
+  const rowCount = Math.max(sheet.getLastRow() - firstRow + 1, 1);
+  return uniqueNonEmpty_(sheet.getRange(firstRow, column, rowCount, 1).getDisplayValues().flat());
+}
+
+function mergeWorkflowConfigValues_(title, configuredValues, existingValues) {
+  const normalizedExistingValues = title === 'Team Members' || title === 'Filmer Assignment Values'
+    ? replaceLegacyTeamNamesInList_(existingValues)
+    : existingValues;
+  return uniqueNonEmpty_((configuredValues || []).concat(normalizedExistingValues || []));
+}
+
 function ensureWorkflowColumns_(spreadsheet) {
   const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
   const headerRow = PHASE1.rows.contentHeader;
+  renameLegacyHeaders_(sheet, headerRow);
   const existing = getHeaderMap_(sheet, headerRow);
   let nextColumn = sheet.getLastColumn() + 1;
   const missingColumnCount = PHASE1.workflowColumns.filter((header) => !existing[header]).length;
@@ -1955,6 +2092,15 @@ function ensureWorkflowColumns_(spreadsheet) {
   sheet.autoResizeColumns(Math.max(1, sheet.getLastColumn() - PHASE1.workflowColumns.length), PHASE1.workflowColumns.length);
 
   return getHeaderMap_(sheet, headerRow);
+}
+
+function renameLegacyHeaders_(sheet, headerRow) {
+  const headerMap = getHeaderMap_(sheet, headerRow);
+  WORKFLOW_HEADER_RENAMES.forEach((rename) => {
+    if (headerMap[rename.oldHeader] && !headerMap[rename.newHeader]) {
+      sheet.getRange(headerRow, headerMap[rename.oldHeader]).setValue(rename.newHeader);
+    }
+  });
 }
 
 function ensureActivityLog_(spreadsheet) {

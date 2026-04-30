@@ -31,9 +31,9 @@ V1 should focus on:
 * Simple handoff menu actions
 * Required fields at each stage
 * File/folder URL tracking
-* Abby approval workflow
-* Stephanie editing workflow
-* Hillary/Tao filming workflow
+* Brand Manager approval workflow
+* Estefanie editing workflow
+* Hillary/Thao filming workflow
 * Posting schedule assignment
 
 V1 should not attempt to fully automate file uploads, social media posting, AI content generation, or complex performance reporting.
@@ -134,7 +134,7 @@ Current issue: this should become the controlled configuration source for dropdo
 
 ## 3. Problem Statement
 
-The current content workflow is spread across spreadsheets and manual team communication. The sheet already tracks content records, but it does not fully manage the handoff process between Abby, Hillary, Tao, and Stephanie.
+The current content workflow is spread across spreadsheets and manual team communication. The sheet already tracks content records, but it does not fully manage the handoff process between Brand Manager, Hillary, Thao, and Estefanie.
 
 The main operational problems are:
 
@@ -142,7 +142,7 @@ The main operational problems are:
 * Statuses can be inconsistent
 * Raw footage links may not be submitted in a standardized place
 * Editing versions are not clearly tracked
-* Abby’s feedback/approval loop is not fully structured
+* Brand Manager’s feedback/approval loop is not fully structured
 * Posting schedule decisions are not cleanly connected to final approval
 * The spreadsheet works as a database, but direct manual editing is not structured enough for day-to-day workflow management
 
@@ -164,15 +164,15 @@ Responsibilities:
 
 ### 4.2 Brand Manager
 
-Primary user: Abby
+Primary user: Brand Manager
 
 Responsibilities:
 
 * Add or refine content ideas
 * Move ideas into planning
 * Create shot list and filming instructions
-* Assign filming to Hillary or Tao
-* Assign editing to Stephanie
+* Assign filming to Hillary or Thao
+* Assign editing to Estefanie
 * Review edited versions
 * Provide feedback
 * Approve final content
@@ -180,7 +180,7 @@ Responsibilities:
 
 ### 4.3 Marketing Intern / Filmer
 
-Primary users: Hillary and Tao
+Primary users: Hillary and Thao
 
 Responsibilities:
 
@@ -193,7 +193,7 @@ Responsibilities:
 
 ### 4.4 Editor
 
-Primary user: Stephanie
+Primary user: Estefanie
 
 Responsibilities:
 
@@ -202,7 +202,7 @@ Responsibilities:
 * Start editing version 1
 * Submit edited version 1 URL
 * Mark version 1 complete
-* Receive Abby feedback if revisions are needed
+* Receive Brand Manager feedback if revisions are needed
 * Start and complete version 2 or later versions as needed
 * Submit final edited URL
 
@@ -221,7 +221,7 @@ Recommended V1 statuses:
 3. **Assigned to Film**
 4. **Filming Complete**
 5. **Editing V1**
-6. **Ready for Abby Review**
+6. **Ready for Brand Manager Review**
 7. **Revision Requested**
 8. **Editing V2+**
 9. **Approved**
@@ -248,7 +248,7 @@ Recommendation: use the detailed version in the database, but group some statuse
 
 #### Step 1: Idea Intake
 
-Anyone can submit an idea, but primarily Abby will manage this.
+Anyone can submit an idea, but primarily Brand Manager will manage this.
 
 Required fields:
 
@@ -269,13 +269,13 @@ System action:
 
 #### Step 2: Planning
 
-Abby reviews the idea and turns it into a planned content task.
+Brand Manager reviews the idea and turns it into a planned content task.
 
 Required fields before moving forward:
 
 * Shot list
 * Filming instructions
-* Assigned filmer: Hillary, Tao, or both
+* Assigned filmer: Hillary, Thao, or both
 * Target filming date
 * Editing brief, optional but preferred
 * Reference/inspiration links, optional
@@ -285,13 +285,13 @@ System action:
 
 * Update status to `Assigned to Film`
 * Store assigned filmer
-* Store planned by = Abby
+* Store planned by = Brand Manager
 * Store planned timestamp
 * Show task in filmer dashboard
 
 #### Step 3: Filming
 
-Hillary/Tao sees assigned filming tasks in their dashboard.
+Hillary/Thao sees assigned filming tasks in their dashboard.
 
 Required fields to complete filming:
 
@@ -305,11 +305,11 @@ System action:
 * Store raw footage URL
 * Store filmed by
 * Store filming completed timestamp
-* Move task to Stephanie’s editing queue
+* Move task to Estefanie’s editing queue
 
 #### Step 4: Editing Version 1
 
-Stephanie starts editing.
+Estefanie starts editing.
 
 Actions available:
 
@@ -323,16 +323,16 @@ Required fields when submitting V1:
 
 System action:
 
-* When Stephanie clicks `Start V1 Edit`, status becomes `Editing V1`
-* When Stephanie submits V1 URL, status becomes `Ready for Abby Review`
+* When Estefanie clicks `Start V1 Edit`, status becomes `Editing V1`
+* When Estefanie submits V1 URL, status becomes `Ready for Brand Manager Review`
 * Store V1 start timestamp
 * Store V1 completed timestamp
 * Store V1 edited file URL
-* Assign review owner to Abby
+* Assign review owner to Brand Manager
 
-#### Step 5: Abby Review
+#### Step 5: Brand Manager Review
 
-Abby reviews the edited video.
+Brand Manager reviews the edited video.
 
 Actions available:
 
@@ -347,9 +347,9 @@ If approved:
 
 If revision requested:
 
-* Abby must enter feedback notes
+* Brand Manager must enter feedback notes
 * Status becomes `Revision Requested`
-* Task returns to Stephanie
+* Task returns to Estefanie
 
 Required fields for revision request:
 
@@ -358,7 +358,7 @@ Required fields for revision request:
 
 #### Step 6: Revision Editing
 
-Stephanie sees revision tasks.
+Estefanie sees revision tasks.
 
 Actions available:
 
@@ -371,13 +371,13 @@ System action:
 * Status becomes `Editing V2+`
 * Store version number
 * Store edited URL for that version
-* Send task back to Abby review after submission
+* Send task back to Brand Manager review after submission
 
 V1 recommendation: store only current version fields in 1A plus keep a separate revision log tab for detailed history.
 
 #### Step 7: Approval and Scheduling
 
-Once Abby approves the content, she schedules it.
+Once Brand Manager approves the content, she schedules it.
 
 Required fields:
 
@@ -397,7 +397,7 @@ System action:
 
 #### Step 8: Posted
 
-After content is posted, Abby or Stephanie marks it as posted.
+After content is posted, Brand Manager or Estefanie marks it as posted.
 
 Required fields:
 
@@ -462,7 +462,7 @@ Add these columns after the existing core content fields or in a new clean datab
 * Stage Started Timestamp
 * Stage Completed Timestamp
 * Revision Count
-* Abby Feedback
+* Brand Manager Feedback
 * Editor Notes
 * Blocker / Issue
 
@@ -526,7 +526,7 @@ Fields:
 * Version Number
 * Submitted By
 * Edited File URL
-* Feedback From Abby
+* Feedback From Brand Manager
 * Decision: Approved / Revision Requested
 * Notes
 
@@ -579,7 +579,7 @@ Menu items:
 
 #### Add New Idea Dialog
 
-Used by Abby, Stephanie, Hillary, Tao, or management.
+Used by Brand Manager, Estefanie, Hillary, Thao, or management.
 
 Writes to:
 
@@ -601,12 +601,12 @@ System action:
 
 * Creates new idea row
 * Generates Idea ID
-* Sets Abby Review Status to `Needs Review`
+* Sets Brand Manager Review Status to `Needs Review`
 * Adds submitted timestamp
 
 #### Promote Idea to Planning Dialog
 
-Used primarily by Abby.
+Used primarily by Brand Manager.
 
 Reads from:
 
@@ -639,12 +639,12 @@ System action:
 
 #### Assign Filming Task Dialog
 
-Used by Abby.
+Used by Brand Manager.
 
 Fields:
 
 * Content #
-* Assigned filmer(s): Hillary, Tao, or Hillary + Tao
+* Assigned filmer(s): Hillary, Thao, or Hillary + Thao
 * Filming date
 * Shot list
 * Filming instructions
@@ -659,7 +659,7 @@ System action:
 
 #### Submit Raw Footage Dialog
 
-Used by Hillary or Tao.
+Used by Hillary or Thao.
 
 Fields:
 
@@ -672,13 +672,13 @@ System action:
 
 * Requires raw footage URL
 * Sets status to `Filming Complete`
-* Sets current owner to Stephanie
+* Sets current owner to Estefanie
 * Adds filming completed timestamp
 * Logs action
 
 #### Start Editing Dialog
 
-Used by Stephanie.
+Used by Estefanie.
 
 Fields:
 
@@ -693,7 +693,7 @@ System action:
 
 #### Submit Edited Version Dialog
 
-Used by Stephanie.
+Used by Estefanie.
 
 Fields:
 
@@ -706,14 +706,14 @@ System action:
 * Requires edited video URL
 * Updates edited version URL
 * Increments or confirms version number
-* Sets status to `Ready for Abby Review`
-* Sets current owner to Abby
+* Sets status to `Ready for Brand Manager Review`
+* Sets current owner to Brand Manager
 * Writes to Revision Log
 * Logs action
 
 #### Review / Approve Content Dialog
 
-Used by Abby.
+Used by Brand Manager.
 
 Fields:
 
@@ -726,20 +726,20 @@ System action if approved:
 
 * Sets status to `Approved`
 * Sets final approved video URL
-* Sets current owner to Abby for scheduling
+* Sets current owner to Brand Manager for scheduling
 * Logs action
 
 System action if revision requested:
 
 * Sets status to `Revision Requested`
-* Sets current owner to Stephanie
-* Stores Abby feedback
+* Sets current owner to Estefanie
+* Stores Brand Manager feedback
 * Writes to Revision Log
 * Logs action
 
 #### Schedule Content Dialog
 
-Used by Abby.
+Used by Brand Manager.
 
 Fields:
 
@@ -757,12 +757,12 @@ System action:
 * Sets status to `Scheduled`
 * Updates 1A
 * Reflects in 1C Posting Calendar
-* Sets current owner to Stephanie for posting
+* Sets current owner to Estefanie for posting
 * Logs action
 
 #### Mark as Posted Dialog
 
-Used by Stephanie.
+Used by Estefanie.
 
 Fields:
 
@@ -786,10 +786,10 @@ The sidebar should allow a user to select their name and see a filtered list of 
 
 Recommended sidebar sections:
 
-* Abby: Needs Planning, Needs Review, Approved but Not Scheduled
+* Brand Manager: Needs Planning, Needs Review, Approved but Not Scheduled
 * Hillary: Assigned Filming Tasks
-* Tao: Assigned Filming Tasks
-* Stephanie: Ready to Edit, Revisions Needed, Scheduled to Post
+* Thao: Assigned Filming Tasks
+* Estefanie: Ready to Edit, Revisions Needed, Scheduled to Post
 * Admin: All Active Tasks and Overdue Tasks
 
 Each task should show:
@@ -814,17 +814,17 @@ For V1, the sidebar is helpful but not required if dialogs and filtered sheet vi
 
 | From                  | To                    | User                 | Required Fields                                       |
 | --------------------- | --------------------- | -------------------- | ----------------------------------------------------- |
-| Idea                  | Planned               | Abby/Admin           | Content pillar, format, idea title                    |
-| Planned               | Assigned to Film      | Abby/Admin           | Assigned filmer, filming date, shot list/instructions |
-| Assigned to Film      | Filming Complete      | Hillary/Tao/Admin    | Raw footage URL                                       |
-| Filming Complete      | Editing V1            | Stephanie/Admin      | None beyond raw footage URL                           |
-| Editing V1            | Ready for Abby Review | Stephanie/Admin      | Edited V1 URL                                         |
-| Ready for Abby Review | Revision Requested    | Abby/Admin           | Feedback notes                                        |
-| Ready for Abby Review | Approved              | Abby/Admin           | Final video URL or approved version URL               |
-| Revision Requested    | Editing V2+           | Stephanie/Admin      | None                                                  |
-| Editing V2+           | Ready for Abby Review | Stephanie/Admin      | Edited revision URL                                   |
-| Approved              | Scheduled             | Abby/Admin           | Posting date, posting time, platform, caption         |
-| Scheduled             | Posted                | Abby/Stephanie/Admin | Posted URL optional in V1                             |
+| Idea                  | Planned               | Brand Manager/Admin           | Content pillar, format, idea title                    |
+| Planned               | Assigned to Film      | Brand Manager/Admin           | Assigned filmer, filming date, shot list/instructions |
+| Assigned to Film      | Filming Complete      | Hillary/Thao/Admin    | Raw footage URL                                       |
+| Filming Complete      | Editing V1            | Estefanie/Admin      | None beyond raw footage URL                           |
+| Editing V1            | Ready for Brand Manager Review | Estefanie/Admin      | Edited V1 URL                                         |
+| Ready for Brand Manager Review | Revision Requested    | Brand Manager/Admin           | Feedback notes                                        |
+| Ready for Brand Manager Review | Approved              | Brand Manager/Admin           | Final video URL or approved version URL               |
+| Revision Requested    | Editing V2+           | Estefanie/Admin      | None                                                  |
+| Editing V2+           | Ready for Brand Manager Review | Estefanie/Admin      | Edited revision URL                                   |
+| Approved              | Scheduled             | Brand Manager/Admin           | Posting date, posting time, platform, caption         |
+| Scheduled             | Posted                | Brand Manager/Estefanie/Admin | Posted URL optional in V1                             |
 
 ### 8.2 Validation Rules
 
@@ -892,8 +892,8 @@ Recommended V1.1 notification layer:
 
 * Email or Google Chat message when a task moves to someone’s queue
 * Daily summary of overdue tasks
-* Abby review queue reminder
-* Stephanie editing queue reminder
+* Brand Manager review queue reminder
+* Estefanie editing queue reminder
 
 ### 9.3 Google Drive Integration
 
@@ -928,7 +928,7 @@ Then 1B and 1C should continue to reflect those dates.
 
 Add Google Calendar event creation:
 
-* Create filming event when Abby assigns filming date
+* Create filming event when Brand Manager assigns filming date
 * Create posting reminder/event when content is scheduled
 * Update event if date changes
 * Store Google Calendar event ID in 1A
@@ -952,7 +952,7 @@ Recommended Kanban columns:
 * Assigned to Film
 * Filming Complete
 * Editing
-* Abby Review
+* Brand Manager Review
 * Revision Requested
 * Approved
 * Scheduled
@@ -978,9 +978,9 @@ Users can visually reference 1D, but workflow changes should happen through the 
 
 Example:
 
-* Abby sees a card in `Ready for Abby Review`.
-* Abby selects the corresponding row in 1A or enters the Content # in the Review dialog.
-* Abby approves or requests revision through the dialog.
+* Brand Manager sees a card in `Ready for Brand Manager Review`.
+* Brand Manager selects the corresponding row in 1A or enters the Content # in the Review dialog.
+* Brand Manager approves or requests revision through the dialog.
 * The script updates 1A.
 * 1D automatically refreshes through formulas.
 
@@ -995,9 +995,9 @@ Example:
 * Update planning fields
 * Assign filmer
 * Submit raw footage URL
-* Assign/edit by Stephanie
+* Assign/edit by Estefanie
 * Submit edited video URL
-* Abby review and feedback loop
+* Brand Manager review and feedback loop
 * Approval button
 * Schedule posting date/time
 * Mark as posted
@@ -1023,7 +1023,7 @@ Example:
 * AI caption generation
 * Automated performance reporting
 * Multi-brand complexity unless absolutely needed
-* Advanced approval chains beyond Abby
+* Advanced approval chains beyond Brand Manager
 
 ---
 
@@ -1068,7 +1068,7 @@ Tasks:
 
 ### Phase 4: Add Editing & Revision Loop
 
-Goal: support Stephanie/Abby back-and-forth without confusion.
+Goal: support Estefanie/Brand Manager back-and-forth without confusion.
 
 Tasks:
 
@@ -1076,11 +1076,11 @@ Tasks:
 * Submit edited version URL
 * Request revision with required feedback
 * Store revision details in Revision Log
-* Return task to Stephanie until approved
+* Return task to Estefanie until approved
 
 ### Phase 5: Add Scheduling Workflow
 
-Goal: Abby can approve and schedule content.
+Goal: Brand Manager can approve and schedule content.
 
 Tasks:
 
@@ -1122,7 +1122,7 @@ Only allow web app edits to core database columns. Protect formula/view tabs.
 
 ### Risk 3: File URL Discipline
 
-If team members forget to paste Google Drive URLs, Stephanie cannot begin work efficiently.
+If team members forget to paste Google Drive URLs, Estefanie cannot begin work efficiently.
 
 Recommendation:
 Block `Filming Complete` unless raw footage URL is submitted.
@@ -1153,7 +1153,7 @@ Reason:
 
 * This keeps raw, early-stage ideas separate from the active production database.
 * It prevents 1A from becoming cluttered with unapproved or half-baked ideas.
-* Abby can review, clean up, and promote ideas into 1A when they are ready for planning.
+* Brand Manager can review, clean up, and promote ideas into 1A when they are ready for planning.
 
 V1 requirement:
 
@@ -1174,20 +1174,20 @@ Recommended Idea Brain Dump columns:
 * Moment / Action
 * Inspiration Link
 * Notes
-* Abby Review Status
+* Brand Manager Review Status
 * Promote to 1A?
 * Promoted Content #
 * Promoted Timestamp
 
 ### 15.2 Filming Queues
 
-Hillary and Tao should have separate filming queues.
+Hillary and Thao should have separate filming queues.
 
 V1 requirement:
 
-* Hillary should only see tasks assigned to Hillary, plus tasks assigned to both Hillary and Tao.
-* Tao should only see tasks assigned to Tao, plus tasks assigned to both Hillary and Tao.
-* If a task is assigned to both, the task card should clearly show `Assigned to: Hillary + Tao`.
+* Hillary should only see tasks assigned to Hillary, plus tasks assigned to both Hillary and Thao.
+* Thao should only see tasks assigned to Thao, plus tasks assigned to both Hillary and Thao.
+* If a task is assigned to both, the task card should clearly show `Assigned to: Hillary + Thao`.
 
 Recommended field:
 
@@ -1195,13 +1195,13 @@ Recommended field:
 
 ### 15.3 Editing Assignment
 
-Stephanie should automatically receive every task once filming is complete.
+Estefanie should automatically receive every task once filming is complete.
 
 V1 requirement:
 
-* When Hillary or Tao submits the raw footage URL and marks filming complete, the system should automatically set the next owner to Stephanie.
-* The task should appear in Stephanie’s editing queue immediately.
-* Abby does not need to manually assign Stephanie for each task in V1.
+* When Hillary or Thao submits the raw footage URL and marks filming complete, the system should automatically set the next owner to Estefanie.
+* The task should appear in Estefanie’s editing queue immediately.
+* Brand Manager does not need to manually assign Estefanie for each task in V1.
 
 ### 15.4 Scheduling Requirements
 
@@ -1209,23 +1209,23 @@ Caption, CTA, and hashtags are required before content can be marked as `Schedul
 
 V1 requirement:
 
-* Abby must enter or confirm caption, CTA, hashtags, platform, posting date, and posting time before scheduling.
+* Brand Manager must enter or confirm caption, CTA, hashtags, platform, posting date, and posting time before scheduling.
 * The system should block the `Mark as Scheduled` action if any of those fields are missing.
 
 ### 15.5 Posted Responsibility
 
-Stephanie is responsible for marking content as posted.
+Estefanie is responsible for marking content as posted.
 
 V1 requirement:
 
-* Once a task is scheduled, it should appear in Stephanie’s posting queue.
-* Stephanie can mark it as `Posted` after the content has gone live.
-* Optional but recommended: Stephanie should paste the live post URL when marking as posted.
+* Once a task is scheduled, it should appear in Estefanie’s posting queue.
+* Estefanie can mark it as `Posted` after the content has gone live.
+* Optional but recommended: Estefanie should paste the live post URL when marking as posted.
 
 ### 15.6 Remaining Open Questions
 
 1. How many revision rounds should V1 support visibly: V1/V2/V3 only, or unlimited through a Revision Log?
-2. When Abby approves a video, should the approved edited URL automatically become the final approved video URL?
+2. When Brand Manager approves a video, should the approved edited URL automatically become the final approved video URL?
 3. Should the system track platform separately for Instagram, TikTok, and YouTube in V1, or just one combined `Platform(s)` field?
 4. Should the web app include a management-only admin override, or should all users be able to edit any content record in V1?
 
@@ -1235,13 +1235,13 @@ V1 requirement:
 
 If we want the simplest working V1, use these defaults:
 
-* Ideas are entered through the web app into `3. Idea Brain Dump`, then Abby promotes selected ideas into 1A.
-* Abby owns planning, assignment, review, approval, and scheduling.
-* Hillary and Tao each have separate filming queues. Tasks assigned to both appear in both queues.
-* Stephanie automatically receives every task after filming is marked complete and raw footage URL is submitted.
+* Ideas are entered through the web app into `3. Idea Brain Dump`, then Brand Manager promotes selected ideas into 1A.
+* Brand Manager owns planning, assignment, review, approval, and scheduling.
+* Hillary and Thao each have separate filming queues. Tasks assigned to both appear in both queues.
+* Estefanie automatically receives every task after filming is marked complete and raw footage URL is submitted.
 * V1 supports visible fields for V1, V2, and V3, plus a Revision Log for additional history.
-* Abby approval sets the final approved video URL.
-* Abby marks content as Scheduled; Stephanie marks content as Posted.
+* Brand Manager approval sets the final approved video URL.
+* Brand Manager marks content as Scheduled; Estefanie marks content as Posted.
 * Platforms are tracked in one multi-select text field for V1.
 * Caption, CTA, hashtags, platform, posting date, and posting time are required before marking as Scheduled.
 * Admin override is available only in Admin view.
@@ -1254,8 +1254,8 @@ V1 should be considered successful if:
 
 * Team members know exactly what tasks are assigned to them
 * Raw footage URLs are consistently captured
-* Stephanie can easily see what is ready to edit
-* Abby can easily see what needs review
+* Estefanie can easily see what is ready to edit
+* Brand Manager can easily see what needs review
 * Revisions are tracked clearly
 * Approved content can be scheduled without hunting through messages
 * 1A remains the clean master database

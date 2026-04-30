@@ -214,7 +214,7 @@
         const lines = [];
         if (task.latestVersion) lines.push(`Version: V${escapeHtml(task.latestVersion)}`);
         if (task.latestEditedUrl) lines.push(`Latest edit: ${escapeHtml(task.latestEditedUrl)}`);
-        if (task.status === 'Revision Requested' && task.abbyFeedback) lines.push(`Abby feedback: ${escapeHtml(task.abbyFeedback)}`);
+        if (task.status === 'Revision Requested' && task.brandManagerFeedback) lines.push(`Brand Manager feedback: ${escapeHtml(task.brandManagerFeedback)}`);
         if (task.editorNotes) lines.push(`Editor notes: ${escapeHtml(task.editorNotes)}`);
         return lines.length ? `<br>${lines.join('<br>')}` : '';
       }
