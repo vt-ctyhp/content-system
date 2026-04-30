@@ -407,6 +407,17 @@ const DUAL_BRAND_SETS = {
 };
 
 const DUAL_BRAND_GROUPED_STATUSES = ['Planned', 'Assigned to Film'];
+const STRICT_WORKFLOW_CONFIG_LISTS = [
+  'Statuses',
+  'Brands',
+  'Dual Brand Sets',
+  'Original / Companion',
+  'Spacing Statuses',
+  'Platforms',
+  'Priorities',
+  'Subjects',
+  'Moment Actions',
+];
 
 function setupPhase1DatabaseFoundation() {
   const spreadsheet = SpreadsheetApp.getActive();
@@ -2479,6 +2490,10 @@ function getWorkflowConfigColumnValues_(sheet, firstRow, column) {
 }
 
 function mergeWorkflowConfigValues_(title, configuredValues, existingValues) {
+  if (STRICT_WORKFLOW_CONFIG_LISTS.indexOf(title) !== -1) {
+    return uniqueNonEmpty_(configuredValues || []);
+  }
+
   const normalizedExistingValues = title === 'Team Members' || title === 'Filmer Assignment Values'
     ? replaceLegacyTeamNamesInList_(existingValues)
     : existingValues;
@@ -3133,6 +3148,8 @@ function applyWorkflowValidations_(spreadsheet, columnMap, configRanges) {
   applyValidationToColumn_(sheet, columnMap.Brand, validationRowCount, configRanges.Brands);
   applyValidationToColumn_(sheet, columnMap['Dual Brand Set'], validationRowCount, configRanges['Dual Brand Sets']);
   applyValidationToColumn_(sheet, columnMap['Original / Companion'], validationRowCount, configRanges['Original / Companion']);
+  applyValidationToColumn_(sheet, columnMap.Subject, validationRowCount, configRanges.Subjects);
+  applyValidationToColumn_(sheet, columnMap['Moment / Action'], validationRowCount, configRanges['Moment Actions']);
   applyValidationToColumn_(sheet, columnMap['Spacing Status'], validationRowCount, configRanges['Spacing Statuses']);
   applyValidationToColumn_(sheet, columnMap.Priority, validationRowCount, configRanges.Priorities);
   applyValidationToColumn_(sheet, columnMap['Platform(s)'], validationRowCount, configRanges.Platforms);
