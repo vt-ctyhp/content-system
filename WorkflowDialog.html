@@ -2,127 +2,313 @@
 <html>
   <head>
     <base target="_top">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
       :root {
         color-scheme: light;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        color: #202124;
+        --bg: #F7F1EB;
+        --surface: #FBF7F1;
+        --inset: #EFE8DD;
+        --dark: #2A2725;
+        --body: #4A4540;
+        --muted: #8A8178;
+        --rule: #D4CFC4;
+        --pink: #E91D79;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        height: 100%;
       }
 
       body {
-        margin: 0;
-        padding: 18px;
-        background: #fff;
+        background: var(--bg);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 12px;
+        color: var(--body);
+        display: flex;
+        flex-direction: column;
       }
 
-      h1 {
-        margin: 0 0 14px;
-        font-size: 18px;
-        font-weight: 700;
+      /* ── TOP ACCENT BAR ── */
+      .accent-bar {
+        height: 3px;
+        background: var(--pink);
+        flex-shrink: 0;
       }
 
+      /* ── CONTEXT BLOCK ── */
       .context {
         display: none;
-        margin: 0 0 14px;
-        padding: 10px 12px;
-        border: 1px solid #dadce0;
-        border-radius: 6px;
-        background: #f8fafd;
-        line-height: 1.45;
+        padding: 9px 16px;
+        background: var(--inset);
+        border-bottom: 1px solid var(--rule);
+        font-family: 'DM Mono', monospace;
+        font-size: 10px;
+        color: var(--body);
+        line-height: 1.6;
+        letter-spacing: 0.02em;
+        flex-shrink: 0;
       }
 
+      .context-label {
+        font-size: 8px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--pink);
+        margin-bottom: 3px;
+      }
+
+      /* ── SCROLL AREA ── */
+      .scroll-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 16px 0;
+      }
+
+      /* ── SECTION DIVIDER ── */
+      .section-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .section-head-line {
+        flex: 1;
+        height: 1px;
+        background: var(--rule);
+      }
+
+      .section-head-label {
+        font-family: 'DM Mono', monospace;
+        font-size: 8px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      /* ── FORM ── */
       form {
         display: grid;
-        gap: 12px;
+        gap: 10px;
+        padding-bottom: 16px;
+      }
+
+      /* Required fields get a subtle left pip */
+      .field-wrap {
+        display: grid;
+        gap: 4px;
+      }
+
+      .field-wrap.is-required {
+        position: relative;
+        padding-left: 8px;
+      }
+
+      .field-wrap.is-required::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 2px;
+        bottom: 2px;
+        width: 2px;
+        background: var(--pink);
+        opacity: 0.55;
       }
 
       label {
         display: grid;
-        gap: 5px;
-        font-weight: 600;
+        gap: 4px;
+      }
+
+      label > span,
+      .label-text {
+        font-family: 'DM Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
       }
 
       input,
       select,
       textarea {
-        box-sizing: border-box;
         width: 100%;
-        border: 1px solid #dadce0;
-        border-radius: 4px;
-        padding: 8px 9px;
-        font: inherit;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 12px;
+        color: var(--dark);
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-bottom-color: var(--muted);
+        padding: 7px 9px;
+        appearance: none;
+        border-radius: 0;
+        transition: border-color 0.12s, background 0.12s;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--pink);
+        background: #fff;
+      }
+
+      select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A8178' stroke-width='1.5' stroke-linecap='square'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-color: var(--surface);
+        padding-right: 24px;
+        cursor: pointer;
       }
 
       textarea {
-        min-height: 74px;
+        min-height: 80px;
         resize: vertical;
+        line-height: 1.5;
       }
 
+      /* CHECKBOX */
       .checkbox {
         display: flex;
         align-items: center;
         gap: 8px;
-        font-weight: 600;
+        cursor: pointer;
+        padding: 6px 0;
       }
 
       .checkbox input {
-        width: auto;
+        width: 14px;
+        height: 14px;
+        accent-color: var(--pink);
+        cursor: pointer;
+        flex-shrink: 0;
+        border: none;
+        background: none;
       }
 
-      .required {
-        color: #b3261e;
+      .checkbox .label-text {
+        font-family: 'DM Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
       }
+
+      /* REQUIRED MARK */
+      .required { color: var(--pink); }
+
+      /* ── STICKY FOOTER ── */
+      .footer {
+        flex-shrink: 0;
+        background: var(--surface);
+        border-top: 1px solid var(--rule);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #status {
+        flex: 1;
+        font-family: 'DM Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        min-height: 16px;
+      }
+
+      #status.error   { color: var(--pink); }
+      #status.success { color: #2A6B3C; }
 
       .actions {
         display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        margin-top: 8px;
+        gap: 6px;
+        flex-shrink: 0;
       }
 
       button {
-        border: 1px solid #dadce0;
-        border-radius: 4px;
-        padding: 8px 12px;
-        background: #fff;
-        color: #202124;
+        font-family: 'DM Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 7px 14px;
+        border: 1px solid var(--rule);
+        background: var(--surface);
+        color: var(--body);
         cursor: pointer;
-        font: inherit;
-        font-weight: 600;
+        border-radius: 0;
+        transition: background 0.12s, color 0.12s, border-color 0.12s;
+      }
+
+      button:hover:not(:disabled) {
+        background: var(--inset);
+        border-color: var(--muted);
       }
 
       button.primary {
-        border-color: #1a73e8;
-        background: #1a73e8;
-        color: #fff;
+        background: var(--dark);
+        border-color: var(--dark);
+        color: var(--bg);
+      }
+
+      button.primary:hover:not(:disabled) {
+        background: var(--pink);
+        border-color: var(--pink);
       }
 
       button:disabled {
         cursor: default;
-        opacity: 0.65;
+        opacity: 0.45;
       }
 
-      .status {
-        min-height: 20px;
-        margin-top: 12px;
-        line-height: 1.4;
+      /* ── LOADING SKELETON ── */
+      .skeleton-wrap { padding: 4px 0; }
+
+      .skeleton-block {
+        background: var(--inset);
+        height: 10px;
+        margin-bottom: 14px;
+        animation: pulse 1.4s ease-in-out infinite;
       }
 
-      .error {
-        color: #b3261e;
-      }
+      .skeleton-block.tall  { height: 60px; }
+      .skeleton-block.short { width: 55%; }
 
-      .success {
-        color: #137333;
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.45; }
       }
     </style>
   </head>
   <body>
-    <h1 id="title">Content Workflow</h1>
+
+    <div class="accent-bar"></div>
     <div id="context" class="context"></div>
-    <form id="workflow-form"></form>
-    <div id="status" class="status"></div>
+
+    <div class="scroll-area">
+      <div class="skeleton-wrap" id="skeleton">
+        <div class="skeleton-block short"></div>
+        <div class="skeleton-block"></div>
+        <div class="skeleton-block short"></div>
+        <div class="skeleton-block"></div>
+        <div class="skeleton-block short"></div>
+        <div class="skeleton-block tall"></div>
+      </div>
+      <form id="workflow-form" style="display:none;"></form>
+    </div>
+
+    <div class="footer">
+      <div id="status" class="status"></div>
+      <div class="actions" id="footer-actions" style="display:none;">
+        <button type="button" onclick="google.script.host.close()">Cancel</button>
+        <button class="primary" id="submit-btn" type="submit" form="workflow-form"></button>
+      </div>
+    </div>
 
     <script>
       const action = '<?= action ?>';
@@ -157,7 +343,7 @@
           return;
         }
 
-        context.innerHTML = lines.map(escapeHtml).join('<br>');
+        context.innerHTML = `<div class="context-label">Context</div>` + lines.map(escapeHtml).join('<br>');
         context.style.display = 'block';
       }
 
@@ -165,22 +351,27 @@
         const value = model.defaults[field.name] || '';
         const required = field.required ? ' required' : '';
         const requiredMark = field.required ? ' <span class="required">*</span>' : '';
+        const wrapClass = `field-wrap${field.required ? ' is-required' : ''}`;
 
         if (field.type === 'checkbox') {
           return `
-            <label class="checkbox">
-              <input type="checkbox" name="${field.name}" value="true"${required}>
-              <span>${escapeHtml(field.label)}${requiredMark}</span>
-            </label>
+            <div class="${wrapClass}">
+              <label class="checkbox">
+                <input type="checkbox" name="${field.name}" value="true"${required}>
+                <span class="label-text">${escapeHtml(field.label)}${requiredMark}</span>
+              </label>
+            </div>
           `;
         }
 
         if (field.type === 'textarea') {
           return `
-            <label>
-              <span>${escapeHtml(field.label)}${requiredMark}</span>
-              <textarea name="${field.name}"${required}>${escapeHtml(value)}</textarea>
-            </label>
+            <div class="${wrapClass}">
+              <label>
+                <span>${escapeHtml(field.label)}${requiredMark}</span>
+                <textarea name="${field.name}"${required}>${escapeHtml(value)}</textarea>
+              </label>
+            </div>
           `;
         }
 
@@ -191,39 +382,69 @@
             return `<option value="${escapeAttr(option)}"${selected}>${escapeHtml(option)}</option>`;
           })).join('');
           return `
-            <label>
-              <span>${escapeHtml(field.label)}${requiredMark}</span>
-              <select name="${field.name}"${required}>${optionHtml}</select>
-            </label>
+            <div class="${wrapClass}">
+              <label>
+                <span>${escapeHtml(field.label)}${requiredMark}</span>
+                <select name="${field.name}"${required}>${optionHtml}</select>
+              </label>
+            </div>
           `;
         }
 
         return `
-          <label>
-            <span>${escapeHtml(field.label)}${requiredMark}</span>
-            <input type="${field.type}" name="${field.name}" value="${escapeAttr(value)}"${required}>
-          </label>
+          <div class="${wrapClass}">
+            <label>
+              <span>${escapeHtml(field.label)}${requiredMark}</span>
+              <input type="${field.type}" name="${field.name}" value="${escapeAttr(value)}"${required}>
+            </label>
+          </div>
         `;
       }
 
       function renderForm() {
-        document.getElementById('title').textContent = model.title;
         renderContext();
 
+        document.getElementById('submit-btn').textContent = model.submitLabel;
+
         const form = document.getElementById('workflow-form');
-        form.innerHTML = model.fields.map(renderField).join('') + `
-          <div class="actions">
-            <button type="button" onclick="google.script.host.close()">Cancel</button>
-            <button class="primary" type="submit">${escapeHtml(model.submitLabel)}</button>
-          </div>
-        `;
+
+        const requiredFields = model.fields.filter(f => f.required);
+        const optionalFields = model.fields.filter(f => !f.required);
+
+        let html = '';
+
+        if (requiredFields.length) {
+          html += `
+            <div class="section-head">
+              <div class="section-head-label">Required</div>
+              <div class="section-head-line"></div>
+            </div>
+          `;
+          html += requiredFields.map(renderField).join('');
+        }
+
+        if (optionalFields.length) {
+          html += `
+            <div class="section-head" style="margin-top:6px;">
+              <div class="section-head-label">Optional</div>
+              <div class="section-head-line"></div>
+            </div>
+          `;
+          html += optionalFields.map(renderField).join('');
+        }
+
+        form.innerHTML = html;
         form.addEventListener('submit', handleSubmit);
+
+        document.getElementById('skeleton').style.display = 'none';
+        form.style.display = 'grid';
+        document.getElementById('footer-actions').style.display = 'flex';
       }
 
       function handleSubmit(event) {
         event.preventDefault();
         const form = event.currentTarget;
-        const submitButton = form.querySelector('button[type="submit"]');
+        const submitButton = form.querySelector('button[type="submit"]') || document.getElementById('submit-btn');
         const payload = {};
 
         model.fields.forEach((field) => {
