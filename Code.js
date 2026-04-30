@@ -799,6 +799,7 @@ function scheduleContent_(payload) {
     logAction: 'SCHEDULE_CONTENT',
     urlSubmitted: approvedVideoUrl,
   });
+  syncPlatformCheckboxes_(payload.contentId, payload.platforms);
 
   return successResult_(`Content #${payload.contentId} scheduled.`);
 }
@@ -1350,6 +1351,85 @@ function getPostingContext_(record) {
 
 function getApprovedVideoUrlForScheduling_(record, revisionHistory) {
   return record['Final Approved Video URL'] || getLatestEditedUrl_(record, revisionHistory || []);
+}
+
+function syncPlatformCheckboxes_(contentId, platformValue) {
+  const spreadsheet = SpreadsheetApp.getActive();
+  const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
+  const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
+  const row = findContentRowById_(sheet, columnMap, contentId);
+  const platformColumns = getPlatformCheckboxColumns_(sheet);
+  const selectedPlatforms = parseSelectedPlatforms_(platformValue);
+
+  Object.keys(platformColumns).forEach((platform) => {
+    const column = platformColumns[platform];
+    const cell = sheet.getRange(row, column);
+    if (cellHasCheckbox_(cell)) {
+      cell.setValue(selectedPlatforms[platform] === true);
+    }
+  });
+}
+
+function getPlatformCheckboxColumns_(sheet) {
+  const platformLabels = {
+    instagram: 'Instagram',
+    tiktok: 'TikTok',
+    youtube: 'YouTube',
+  };
+  const columns = {};
+  const maxColumns = sheet.getLastColumn();
+  const headerValues = sheet.getRange(1, 1, Math.min(5, sheet.getMaxRows()), maxColumns).getDisplayValues();
+
+  headerValues.forEach((row) => {
+    row.forEach((value, index) => {
+      const normalizedValue = normalizePlatformLabel_(value);
+      if (platformLabels[normalizedValue] && !columns[platformLabels[normalizedValue]]) {
+        columns[platformLabels[normalizedValue]] = index + 1;
+      }
+    });
+  });
+
+  sheet.getRange(1, 1, Math.min(5, sheet.getMaxRows()), maxColumns).getMergedRanges().forEach((range) => {
+    const normalizedValue = normalizePlatformLabel_(range.getDisplayValue());
+    if (platformLabels[normalizedValue] && !columns[platformLabels[normalizedValue]]) {
+      columns[platformLabels[normalizedValue]] = range.getColumn();
+    }
+  });
+
+  return columns;
+}
+
+function parseSelectedPlatforms_(platformValue) {
+  const selected = {};
+  String(platformValue || '')
+    .split(/\s*\+\s*|,\s*|\n+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .forEach((value) => {
+      const normalizedValue = normalizePlatformLabel_(value);
+      if (normalizedValue === 'instagram') {
+        selected.Instagram = true;
+      }
+      if (normalizedValue === 'tiktok') {
+        selected.TikTok = true;
+      }
+      if (normalizedValue === 'youtube') {
+        selected.YouTube = true;
+      }
+    });
+  return selected;
+}
+
+function normalizePlatformLabel_(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace('youTube'.toLowerCase(), 'youtube');
+}
+
+function cellHasCheckbox_(cell) {
+  const validation = cell.getDataValidation();
+  return validation && validation.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.CHECKBOX;
 }
 
 function normalizeDateForSheet_(value) {
