@@ -176,7 +176,7 @@ Responsibilities:
 * Review edited versions
 * Provide feedback
 * Approve final content
-* Schedule posting date/time
+* Use Schedule Content as a fallback when needed
 
 ### 4.3 Marketing Intern / Filmer
 
@@ -205,6 +205,8 @@ Responsibilities:
 * Receive Brand Manager feedback if revisions are needed
 * Start and complete version 2 or later versions as needed
 * Submit final edited URL
+* Schedule approved content
+* Mark scheduled content as posted
 
 ---
 
@@ -377,7 +379,7 @@ V1 recommendation: store only current version fields in 1A plus keep a separate 
 
 #### Step 7: Approval and Scheduling
 
-Once Brand Manager approves the content, she schedules it.
+Once Brand Manager approves the content, Estefanie schedules it. Brand Manager can still schedule as a fallback when needed.
 
 Required fields:
 
@@ -726,7 +728,7 @@ System action if approved:
 
 * Sets status to `Approved`
 * Sets final approved video URL
-* Sets current owner to Brand Manager for scheduling
+* Sets current owner to Estefanie for scheduling
 * Logs action
 
 System action if revision requested:
@@ -739,7 +741,7 @@ System action if revision requested:
 
 #### Schedule Content Dialog
 
-Used by Brand Manager.
+Used by Estefanie. Brand Manager can use it as a fallback.
 
 Fields:
 
@@ -786,10 +788,10 @@ The sidebar should allow a user to select their name and see a filtered list of 
 
 Recommended sidebar sections:
 
-* Brand Manager: Needs Planning, Needs Review, Approved but Not Scheduled
+* Brand Manager: Needs Planning, Needs Review, Approved fallback scheduling
 * Hillary: Assigned Filming Tasks
 * Thao: Assigned Filming Tasks
-* Estefanie: Ready to Edit, Revisions Needed, Scheduled to Post
+* Estefanie: Ready to Edit, Revisions Needed, Approved to Schedule, Scheduled to Post
 * Admin: All Active Tasks and Overdue Tasks
 
 Each task should show:
@@ -823,8 +825,8 @@ For V1, the sidebar is helpful but not required if dialogs and filtered sheet vi
 | Ready for Brand Manager Review | Approved              | Brand Manager/Admin           | Final video URL or approved version URL               |
 | Revision Requested    | Editing V2+           | Estefanie/Admin      | None                                                  |
 | Editing V2+           | Ready for Brand Manager Review | Estefanie/Admin      | Edited revision URL                                   |
-| Approved              | Scheduled             | Brand Manager/Admin           | Posting date, posting time, platform, caption         |
-| Scheduled             | Posted                | Brand Manager/Estefanie/Admin | Posted URL optional in V1                             |
+| Approved              | Scheduled             | Estefanie/Brand Manager/Admin | Posting date, posting time, platform, caption         |
+| Scheduled             | Posted                | Estefanie/Admin      | Posted URL optional in V1                             |
 
 ### 8.2 Validation Rules
 
@@ -1080,7 +1082,7 @@ Tasks:
 
 ### Phase 5: Add Scheduling Workflow
 
-Goal: Brand Manager can approve and schedule content.
+Goal: Brand Manager can approve content, then Estefanie can schedule it. Brand Manager remains a scheduling fallback.
 
 Tasks:
 
@@ -1209,7 +1211,7 @@ Caption, CTA, and hashtags are required before content can be marked as `Schedul
 
 V1 requirement:
 
-* Brand Manager must enter or confirm caption, CTA, hashtags, platform, posting date, and posting time before scheduling.
+* Estefanie must enter or confirm caption, CTA, hashtags, platform, posting date, and posting time before scheduling. Brand Manager can do this as a fallback when needed.
 * The system should block the `Mark as Scheduled` action if any of those fields are missing.
 
 ### 15.5 Posted Responsibility
@@ -1236,12 +1238,13 @@ V1 requirement:
 If we want the simplest working V1, use these defaults:
 
 * Ideas are entered through the web app into `3. Idea Brain Dump`, then Brand Manager promotes selected ideas into 1A.
-* Brand Manager owns planning, assignment, review, approval, and scheduling.
+* Brand Manager owns planning, assignment, review, and approval, with scheduling fallback access.
 * Hillary and Thao each have separate filming queues. Tasks assigned to both appear in both queues.
 * Estefanie automatically receives every task after filming is marked complete and raw footage URL is submitted.
+* Estefanie receives approved content for scheduling after Brand Manager approval.
 * V1 supports visible fields for V1, V2, and V3, plus a Revision Log for additional history.
 * Brand Manager approval sets the final approved video URL.
-* Brand Manager marks content as Scheduled; Estefanie marks content as Posted.
+* Estefanie marks content as Scheduled and Posted.
 * Platforms are tracked in one multi-select text field for V1.
 * Caption, CTA, hashtags, platform, posting date, and posting time are required before marking as Scheduled.
 * Admin override is available only in Admin view.

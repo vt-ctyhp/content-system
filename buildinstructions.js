@@ -278,7 +278,7 @@ function instructionsBuildContent_(sheet) {
     }
   ]);
 
-  row = instructionsAddSection_(sheet, row, 'Brand Manager', 'Planning, reviewing, and scheduling owner.', [
+  row = instructionsAddSection_(sheet, row, 'Brand Manager', 'Planning, review, and approval owner.', [
     {
       title: 'Promote ideas',
       body: [
@@ -302,17 +302,16 @@ function instructionsBuildContent_(sheet) {
       title: 'Review edited content',
       body: [
         'Ready for Brand Manager Review cards show the latest edit URL and version number.',
-        'Approve when final: Final Approved Video URL is saved and status becomes Approved.',
+        'Approve when final: Final Approved Video URL is saved, status becomes Approved, and Current Owner becomes Estefanie for scheduling.',
         'Request Revision when changes are needed: feedback is required, Revision Log is updated, and Current Owner becomes Estefanie.'
       ]
     },
     {
-      title: 'Schedule approved content',
+      title: 'Scheduling fallback',
       body: [
-        'For Approved items, use Schedule Content.',
-        'Required: platform, posting date, time, caption, CTA, hashtags, and approved video URL.',
-        'Scheduling updates 1A, checks platform boxes when available, compares paired HP/VVS posting dates, and sends the item to Estefanie to post.',
-        'Spacing warnings are advisory. Aim for at least one week apart, and closer to two weeks when the calendar allows.'
+        'Estefanie owns Approved items for scheduling.',
+        'Brand Manager can still use Schedule Content as a fallback when needed.',
+        'Required: platform, posting date, time, caption, CTA, hashtags, and approved video URL.'
       ]
     }
   ]);
@@ -345,7 +344,7 @@ function instructionsBuildContent_(sheet) {
     }
   ]);
 
-  row = instructionsAddSection_(sheet, row, 'Estefanie', 'Editing, revision, and posting owner workflow.', [
+  row = instructionsAddSection_(sheet, row, 'Estefanie', 'Editing, revision, scheduling, and posting owner workflow.', [
     {
       title: 'Start editing',
       body: [
@@ -369,6 +368,15 @@ function instructionsBuildContent_(sheet) {
         'Revision Requested cards show Brand Manager feedback.',
         'Start Revision, make updates, and submit the next edited version.',
         'Revision Log preserves each submitted version and review decision.'
+      ]
+    },
+    {
+      title: 'Schedule approved content',
+      body: [
+        'Approved items appear in Estefanie task queue.',
+        'Use Schedule Content when platform, posting date, time, caption, CTA, hashtags, and approved video URL are ready.',
+        'Scheduling updates 1A, checks platform boxes when available, compares paired HP/VVS posting dates, and keeps the item assigned to Estefanie for posting.',
+        'Spacing warnings are advisory. Aim for at least one week apart, and closer to two weeks when the calendar allows.'
       ]
     },
     {
@@ -421,7 +429,7 @@ function instructionsBuildContent_(sheet) {
       body: [
         'Google Sheets access is controlled with the Share button. Give edit access only to people who should update workflow data.',
         'The Roles list in 5. Settings is a workflow reference, not a security system by itself.',
-        'Task queue permissions are currently workflow-based: Brand Manager handles planning/review/scheduling, Hillary/Thao handle filming, Estefanie handles editing/posting, Vivianne/Admin see all actions.',
+        'Task queue permissions are currently workflow-based: Brand Manager handles planning/review/approval with scheduling fallback, Hillary/Thao handle filming, Estefanie handles editing/scheduling/posting, Vivianne/Admin see all actions.',
         'If a new person needs a routed queue or Admin Override access, update Code.js routing rules before relying on the role label alone.'
       ]
     }

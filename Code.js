@@ -370,7 +370,7 @@ const WORKFLOW_TRANSITIONS = {
     label: 'Review / Approve',
     from: ['Ready for Brand Manager Review'],
     to: 'Approved',
-    owner: 'Brand Manager',
+    owner: 'Estefanie',
     requiredFields: ['contentId', 'decision'],
   },
   requestRevision: {
@@ -1070,6 +1070,7 @@ function getExpectedOwnerForStatus_(status) {
     'Editing V2+': 'Estefanie',
     'Ready for Brand Manager Review': 'Brand Manager',
     'Revision Requested': 'Estefanie',
+    Approved: 'Estefanie',
     Scheduled: 'Estefanie',
   };
   return ownersByStatus[status] || '';
@@ -1264,7 +1265,7 @@ function addNewIdea_(payload) {
     'Submitted Date': new Date(),
     'Submitted By': payload.submittedBy,
     'Brand Manager Review Status': 'Needs Review',
-    'Promote to 1A?': 0,
+    'Promote to 1A?': false,
     'Content Pillar': payload.contentPillar,
     Format: payload.format,
     Goal: payload.goal,
@@ -1303,7 +1304,7 @@ function promoteIdeaToPlanning_(payload) {
   const ideaRow = Number(payload.ideaRow);
   if (ideaRow >= IDEA_BRAIN_DUMP.dataStart) {
     writeIdeaBrainDumpValues_(ideaSheet, ideaRow, ideaColumnMap, {
-      'Promote to 1A?': 1,
+      'Promote to 1A?': true,
       'Promoted Content #': createdContentIds.join(', '),
       'Promoted Timestamp': new Date(),
       'Brand Manager Review Status': 'Promoted',
@@ -1907,7 +1908,7 @@ function getAvailableActionsForRecord_(record, userName) {
     actionIds.push('reviewApprove');
   }
 
-  if ((isAdmin || userName === 'Brand Manager') && record.status === 'Approved') {
+  if ((isAdmin || userName === 'Brand Manager' || userName === 'Estefanie') && record.status === 'Approved') {
     actionIds.push('scheduleContent');
   }
 
@@ -2334,7 +2335,7 @@ function taskBelongsInQueue_(record, userName) {
   }
 
   if (userName === 'Estefanie') {
-    return ['Filming Complete', 'Revision Requested', 'Scheduled', 'Editing V1', 'Editing V2+'].indexOf(record.status) !== -1;
+    return ['Filming Complete', 'Revision Requested', 'Approved', 'Scheduled', 'Editing V1', 'Editing V2+'].indexOf(record.status) !== -1;
   }
 
   if (userName === 'Brand Manager') {
@@ -2508,7 +2509,8 @@ function rebuildIdeaBrainDumpSurface_(sheet, records) {
     const values = records.map((record, index) => {
       const nextRecord = Object.assign({}, record);
       nextRecord['Idea ID'] = nextRecord['Idea ID'] || getGeneratedIdeaId_(index + 1);
-      return headers.map((header) => nextRecord[header] || '');
+      nextRecord['Promote to 1A?'] = normalizeCheckboxValue_(nextRecord['Promote to 1A?']);
+      return headers.map((header) => Object.prototype.hasOwnProperty.call(nextRecord, header) ? nextRecord[header] : '');
     });
     sheet.getRange(IDEA_BRAIN_DUMP.dataStart, 1, values.length, headers.length).setValues(values);
     restoreIdeaBrainDumpRichText_(sheet, records);
@@ -2632,9 +2634,18 @@ function isIdeaBrainDumpSchemaCurrent_(sheet) {
 function writeIdeaBrainDumpValues_(sheet, row, columnMap, valuesByHeader) {
   Object.keys(valuesByHeader).forEach((header) => {
     if (columnMap[header]) {
-      sheet.getRange(row, columnMap[header]).setValue(valuesByHeader[header]);
+      const value = header === 'Promote to 1A?' ? normalizeCheckboxValue_(valuesByHeader[header]) : valuesByHeader[header];
+      sheet.getRange(row, columnMap[header]).setValue(value);
     }
   });
+}
+
+function normalizeCheckboxValue_(value) {
+  if (value === true || value === false) {
+    return value;
+  }
+  const cleanValue = String(value || '').trim().toLowerCase();
+  return cleanValue === '1' || cleanValue === 'true' || cleanValue === 'yes' || cleanValue === 'checked';
 }
 
 function getNextIdeaId_(sheet, columnMap) {
@@ -3220,6 +3231,9 @@ function migrateContentRecord_(record) {
   });
   migrated.Status = PHASE1.statusMap[record.Status] || record.Status || '';
   migrated['Current Owner'] = replaceLegacyTeamNameValue_(record['Current Owner'] || '');
+  if (migrated.Status === 'Approved' && (!migrated['Current Owner'] || migrated['Current Owner'] === 'Brand Manager')) {
+    migrated['Current Owner'] = 'Estefanie';
+  }
   migrated['Assigned Filmer(s)'] = replaceLegacyTeamNameValue_(record['Assigned Filmer(s)'] || '');
   migrated['Assigned Editor'] = replaceLegacyTeamNameValue_(record['Assigned Editor'] || '');
   migrated['Assigned Reviewer'] = replaceLegacyTeamNameValue_(record['Assigned Reviewer'] || '');
