@@ -33,22 +33,24 @@ const INSTRUCTIONS_CFG = {
 };
 
 function buildWorkflowInstructionsTab() {
-  const ss = SpreadsheetApp.getActive();
-  let sheet = ss.getSheetByName(INSTRUCTIONS_CFG.targetTab);
+  return withTiming_('buildWorkflowInstructionsTab', () => {
+    const ss = SpreadsheetApp.getActive();
+    let sheet = ss.getSheetByName(INSTRUCTIONS_CFG.targetTab);
 
-  if (!sheet) {
-    sheet = ss.insertSheet(INSTRUCTIONS_CFG.targetTab, 0);
-  }
+    if (!sheet) {
+      sheet = ss.insertSheet(INSTRUCTIONS_CFG.targetTab, 0);
+    }
 
-  instructionsResetSheet_(sheet);
-  instructionsResizeSheet_(sheet);
-  instructionsPaintBackground_(sheet);
-  instructionsBuildHeader_(sheet);
-  instructionsBuildSidePanel_(sheet);
-  instructionsBuildContent_(sheet);
-  instructionsFinalise_(sheet);
+    instructionsResetSheet_(sheet);
+    instructionsResizeSheet_(sheet);
+    instructionsPaintBackground_(sheet);
+    instructionsBuildHeader_(sheet);
+    instructionsBuildSidePanel_(sheet);
+    instructionsBuildContent_(sheet);
+    instructionsFinalise_(sheet);
 
-  ss.toast('Workflow instructions rebuilt successfully.', INSTRUCTIONS_CFG.targetTab, 5);
+    ss.toast('Workflow instructions rebuilt successfully.', INSTRUCTIONS_CFG.targetTab, 5);
+  });
 }
 
 function instructionsResetSheet_(sheet) {

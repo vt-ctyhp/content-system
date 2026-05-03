@@ -86,34 +86,37 @@ const CFG = {
 
 // ── ENTRY POINT ──────────────────────────────────────────────────────────────
 function buildKanbanView() {
-  const ss = SpreadsheetApp.getActive();
+  return withTiming_('buildKanbanView', () => {
+    const ss = SpreadsheetApp.getActive();
+    const sourceSheet = ss.getSheetByName(CFG.sourceTab);
 
-  if (!ss.getSheetByName(CFG.sourceTab)) {
-    throw new Error('Source tab not found: ' + CFG.sourceTab);
-  }
-  CFG.col = getKanbanColumnMap_(ss.getSheetByName(CFG.sourceTab));
+    if (!sourceSheet) {
+      throw new Error('Source tab not found: ' + CFG.sourceTab);
+    }
+    CFG.col = getKanbanColumnMap_(sourceSheet);
 
-  let sheet = ss.getSheetByName(CFG.targetTab);
-  if (!sheet) sheet = ss.insertSheet(CFG.targetTab);
+    let sheet = ss.getSheetByName(CFG.targetTab);
+    if (!sheet) sheet = ss.insertSheet(CFG.targetTab);
 
-  // Full reset
-  sheet.clear();
-  sheet.clearFormats();
-  sheet.clearNotes();
-  sheet.getBandings().forEach(b => b.remove());
-  sheet.clearConditionalFormatRules();
-  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns())
-       .clearDataValidations();
+    // Full reset
+    sheet.clear();
+    sheet.clearFormats();
+    sheet.clearNotes();
+    sheet.getBandings().forEach(b => b.remove());
+    sheet.clearConditionalFormatRules();
+    sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns())
+         .clearDataValidations();
 
-  _resizeSheet(sheet);
-  _paintBackground(sheet);
-  _buildFilterPanel(sheet);
-  _buildHeader(sheet);
-  _buildKanbanColumns(sheet);
-  _buildCountRow(sheet);
-  _finalise(sheet);
+    _resizeSheet(sheet);
+    _paintBackground(sheet);
+    _buildFilterPanel(sheet, ss);
+    _buildHeader(sheet);
+    _buildKanbanColumns(sheet);
+    _buildCountRow(sheet);
+    _finalise(sheet);
 
-  ss.toast('✓ Kanban view rebuilt successfully.', '1D. Kanban View', 5);
+    ss.toast('✓ Kanban view rebuilt successfully.', '1D. Kanban View', 5);
+  });
 }
 
 
@@ -194,7 +197,7 @@ function _paintBackground(sheet) {
 
 
 // ── FILTER PANEL ─────────────────────────────────────────────────────────────
-function _buildFilterPanel(sheet) {
+function _buildFilterPanel(sheet, ss) {
   const c = CFG.color;
 
   // Row definitions: [value, style]
@@ -274,7 +277,7 @@ function _buildFilterPanel(sheet) {
   sheet.getRange('A10').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInRange(
-        SpreadsheetApp.getActive().getRange(
+        ss.getRange(
           "'" + CFG.sourceTab + "'!$" + CFG.col.pillar + "$" + CFG.dataStart + ':$' + CFG.col.pillar + '$' + CFG.dataEnd), true)
       .setAllowInvalid(true).build());
 
@@ -282,7 +285,7 @@ function _buildFilterPanel(sheet) {
   sheet.getRange('A12').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInRange(
-        SpreadsheetApp.getActive().getRange(
+        ss.getRange(
           "'" + CFG.sourceTab + "'!$" + CFG.col.format + "$" + CFG.dataStart + ':$' + CFG.col.format + '$' + CFG.dataEnd), true)
       .setAllowInvalid(true).build());
 

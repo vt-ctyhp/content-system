@@ -172,6 +172,36 @@
         line-height: 1.5;
       }
 
+      .multi-select {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+        max-height: 170px;
+        overflow-y: auto;
+        padding: 8px;
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-bottom-color: var(--muted);
+      }
+
+      .multi-option {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 12px;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--dark);
+      }
+
+      .multi-option input {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+        accent-color: var(--pink);
+      }
+
       /* CHECKBOX */
       .checkbox {
         display: flex;
@@ -375,6 +405,28 @@
           `;
         }
 
+        if (field.type === 'multiSelect') {
+          const options = model.options[field.optionsKey] || [];
+          const selectedValues = splitMultiSelectValue(value);
+          const optionHtml = options.map((option) => {
+            const checked = selectedValues.indexOf(String(option)) !== -1 ? ' checked' : '';
+            return `
+              <label class="multi-option">
+                <input type="checkbox" name="${field.name}" value="${escapeAttr(option)}"${checked}>
+                <span>${escapeHtml(option)}</span>
+              </label>
+            `;
+          }).join('');
+          return `
+            <div class="${wrapClass}">
+              <label>
+                <span>${escapeHtml(field.label)}${requiredMark}</span>
+                <div class="multi-select" data-field="${escapeAttr(field.name)}">${optionHtml}</div>
+              </label>
+            </div>
+          `;
+        }
+
         if (field.type === 'select') {
           const options = model.options[field.optionsKey] || [];
           const optionHtml = ['<option value=""></option>'].concat(options.map((option) => {
@@ -448,8 +500,7 @@
         const payload = {};
 
         model.fields.forEach((field) => {
-          const input = form.elements[field.name];
-          payload[field.name] = field.type === 'checkbox' ? String(Boolean(input && input.checked)) : (input ? input.value : '');
+          payload[field.name] = getFieldValue(form, field);
         });
 
         submitButton.disabled = true;
@@ -477,6 +528,33 @@
 
       function escapeAttr(value) {
         return escapeHtml(value).replace(/`/g, '&#96;');
+      }
+
+      function getFieldValue(form, field) {
+        const input = form.elements[field.name];
+        if (field.type === 'checkbox') {
+          return String(Boolean(input && input.checked));
+        }
+        if (field.type === 'multiSelect') {
+          return Array.from(form.querySelectorAll(`input[name="${cssEscape(field.name)}"]:checked`))
+            .map((option) => option.value)
+            .join(', ');
+        }
+        return input ? input.value : '';
+      }
+
+      function splitMultiSelectValue(value) {
+        return String(value || '')
+          .split(/\s*,\s*|\n+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+
+      function cssEscape(value) {
+        if (window.CSS && CSS.escape) {
+          return CSS.escape(value);
+        }
+        return String(value).replace(/"/g, '\\"');
       }
 
       setStatus('Loading...', '');

@@ -327,6 +327,647 @@ const PHASE1 = {
   },
 };
 
+const PERFORMANCE_TIMING_DEFAULT_ENABLED = false;
+const PERFORMANCE_TIMING_DEFAULT_DETAILED = false;
+const PERFORMANCE_TIMING_PROPERTY_KEYS = {
+  enabled: 'PERF_TIMING_ENABLED',
+  detailed: 'PERF_TIMING_DETAILED',
+  runLabel: 'PERF_TIMING_RUN_LABEL',
+};
+let PERFORMANCE_TIMING_SETTINGS_ = null;
+let PERFORMANCE_TIMING_RUN_ID_ = '';
+let PERFORMANCE_TIMING_DEPTH_ = 0;
+let PERFORMANCE_TIMING_WRAPPERS_INSTALLED_ = false;
+const PERFORMANCE_TIMING_WRAPPED_MARKER_ = '__perfTimingWrapped';
+
+const PERFORMANCE_TIMED_FUNCTION_NAMES = [
+  '_buildCountRow',
+  '_buildFilterPanel',
+  '_buildHeader',
+  '_buildKanbanColumns',
+  '_countFormula',
+  '_finalise',
+  '_formula',
+  '_matrix',
+  '_paintBackground',
+  '_resizeSheet',
+  '_styleColumn',
+  'actionLabel_',
+  'addDualBrandQaIssues_',
+  'addNewIdea_',
+  'addRevisionQaIssues_',
+  'addWorkflowQaIssue_',
+  'adminOverrideContent_',
+  'advanceWorkflow_',
+  'appendActivityLog_',
+  'appendRevisionLog_',
+  'appendRows_',
+  'applyCalendarDisplayFields_',
+  'applyCheckboxValidationToColumn_',
+  'applyContentPlanningColumnWidths_',
+  'applyContentPlanningOperationalFormatting_',
+  'applyIdeaBrainDumpColumnWidths_',
+  'applyIdeaBrainDumpValidations_',
+  'applyValidationToColumnForStart_',
+  'applyValidationToColumn_',
+  'applyWarningValidationToColumnForStart_',
+  'applyWarningValidationToColumn_',
+  'applyWorkflowValidations_',
+  'assertAllowedTransition_',
+  'assertRequiredContentColumns_',
+  'assertWritableHeaders_',
+  'assignFilmingTask_',
+  'attachIdeaBrainDumpRichText_',
+  'backupContentPlanningSheet_',
+  'buildBrandDeliverables_',
+  'buildCalendarControls_',
+  'buildCalendarDisplayValue_',
+  'buildCalendarEventText_',
+  'buildCalendarEventRecords_',
+  'buildCalendarGrid_',
+  'buildContentPlanningMasthead_',
+  'buildContentPlanningSectionHeaders_',
+  'buildIdeaBrainDumpMasthead_',
+  'buildPromotedContentValues_',
+  'buildRevisionLogRow_',
+  'buildTaskQueuePayload_',
+  'buildTaskQueueSummary_',
+  'buildWorkflowContextLines_',
+  'buildWorkflowDefaults_',
+  'buildWorkflowQaRows_',
+  'calendarDateKey_',
+  'cellHasCheckbox_',
+  'checkboxField_',
+  'clearWorkflowQaReport_',
+  'colLetter',
+  'colStart',
+  'configRangeName_',
+  'dateField_',
+  'ensureActivityLog_',
+  'ensureColumns_',
+  'ensureIdeaBrainDumpColumns_',
+  'ensureLogSheet_',
+  'ensureRevisionLog_',
+  'ensureRows_',
+  'ensureWorkflowColumns_',
+  'ensureWorkflowQaReport_',
+  'ensureWorkflowSettings_',
+  'fieldLabel_',
+  'findContentRowById_',
+  'findFirstBlankRowByColumn_',
+  'findOrCreateWorkflowConfigBlock_',
+  'flagCredentialSecurityCleanup_',
+  'formatCalendarTime_',
+  'getApprovedVideoUrlForScheduling_',
+  'getAvailableActionsForRecord_',
+  'getCalendarControls_',
+  'getCalendarDays_',
+  'getCalendarEventHeaders_',
+  'getCalendarEventsByDate_',
+  'getConfigListValues_',
+  'getContentPlanningHeaders_',
+  'getContentRecordById_',
+  'getCurrentEditVersion_',
+  'getEffectiveUserEmail_',
+  'getExistingContentHeaderRow_',
+  'getExistingWorkflowSettingsValues_',
+  'getExpectedOwnerForStatus_',
+  'getFirstDayOfCurrentMonth_',
+  'getGeneratedIdeaId_',
+  'getHeaderMap_',
+  'getIdeaBrainDumpLegacyColumn_',
+  'getKanbanColumnMap_',
+  'getLastContentDataRowForStart_',
+  'getLastContentDataRow_',
+  'getLatestEditVersion_',
+  'getLatestEditedUrl_',
+  'getLatestRevisionEntryFromHistory_',
+  'getLatestRevisionEntry_',
+  'getLegacySettingsValues_',
+  'getNamedRangeValues_',
+  'getNextConceptId_',
+  'getNextContentId_',
+  'getNextContentRow_',
+  'getNextEditVersion_',
+  'getNextIdeaId_',
+  'getNextSubmissionVersion_',
+  'getOverdueLabel_',
+  'getPairedContentRecord_',
+  'getPlatformCheckboxColumns_',
+  'getPostingContext_',
+  'getRequiredFieldsForStatus_',
+  'getRevisionHistoryMap_',
+  'getRevisionHistory_',
+  'getSchedulingReadiness_',
+  'getSelectedContentContext_',
+  'getSelectedIdeaContext_',
+  'getSettingsColumnValuesFromSheet_',
+  'getSettingsColumnValues_',
+  'getSpacingContext_',
+  'getTransitionRule_',
+  'getVisibleEditUrlHeader_',
+  'getWorkflowActionConfig_',
+  'getWorkflowActionDisplay_',
+  'getWorkflowConfigColumnValues_',
+  'getWorkflowOptions_',
+  'getWorkflowQaIssuesForRecord_',
+  'groupDualBrandFilmingTasks_',
+  'handleMultiSelectValidationEdit_',
+  'hydrateTaskQueueRecord_',
+  'ideaBrainDumpRecordHasData_',
+  'incrementCount_',
+  'inferBrandFromContentId_',
+  'inferConceptIdFromContentId_',
+  'instructionsAddCard_',
+  'instructionsAddSection_',
+  'instructionsBuildContent_',
+  'instructionsBuildHeader_',
+  'instructionsBuildSidePanel_',
+  'instructionsFinalise_',
+  'instructionsPaintBackground_',
+  'instructionsResetSheet_',
+  'instructionsResizeSheet_',
+  'isContentPlanningSchemaCurrent_',
+  'isDateOverdue_',
+  'isDualBrandRecord_',
+  'isIdeaBrainDumpSchemaCurrent_',
+  'isRecordOverdue_',
+  'isUserAssignedFilmer_',
+  'markContentPosted_',
+  'mergeWorkflowConfigValues_',
+  'migrateContentRecord_',
+  'multiSelectField_',
+  'normalizeCheckboxValue_',
+  'normalizeContentId_',
+  'normalizeDateForSheet_',
+  'normalizePlatformLabel_',
+  'normalizeTimeForSheet_',
+  'numberField_',
+  'onEdit',
+  'onOpen',
+  'openAddNewIdeaDialog',
+  'openAdminOverrideDialog',
+  'openAssignFilmingTaskDialog',
+  'openMarkAsPostedDialog',
+  'openMyTaskQueueSidebar',
+  'openPromoteIdeaDialog',
+  'openPromoteIdeaSidebar',
+  'openReviewApproveContentDialog',
+  'openScheduleContentDialog',
+  'openStartEditingDialog',
+  'openSubmitEditedVersionDialog',
+  'openSubmitRawFootageDialog',
+  'openWorkflowDialogForTask',
+  'parseSelectedPlatforms_',
+  'parseSheetDate_',
+  'parseTeamAssignment_',
+  'promoteIdeaToPlanning_',
+  'readIdeaBrainDumpRecords_',
+  'readSparseColumnValues_',
+  'rebuildCalendarViewTab_',
+  'rebuildCalendarViewsSilently_',
+  'rebuildContentPlanningSchema_',
+  'rebuildContentPlanningSurface_',
+  'rebuildDependentViewTabs_',
+  'rebuildIdeaBrainDumpSheet_',
+  'rebuildIdeaBrainDumpSurface_',
+  'rebuildWorkflowSettingsSurface_',
+  'refreshSubjectMomentActionValidationForSheet_',
+  'renameLegacyHeaders_',
+  'replaceLegacyTeamNameValue_',
+  'replaceLegacyTeamNamesInContent_',
+  'replaceLegacyTeamNamesInList_',
+  'requireFields_',
+  'requireSheet_',
+  'restoreIdeaBrainDumpRichText_',
+  'reviewApproveContent_',
+  'richTextValueHasLink_',
+  'rowToContentRecord_',
+  'rowToIdeaBrainDumpRecord_',
+  'safeGetDisplayValue_',
+  'safeGetValue_',
+  'sanitizePayload_',
+  'scheduleContent_',
+  'selectField_',
+  'showWorkflowDialog_',
+  'splitMultiSelectCellValue_',
+  'standardizeExistingStatuses_',
+  'startEditing_',
+  'styleContentPlanningDataRows_',
+  'styleContentPlanningHelperColumns_',
+  'styleContentPlanningSheet_',
+  'styleIdeaBrainDumpSheet_',
+  'styleWorkflowSettingsSheet_',
+  'submitEditedVersion_',
+  'submitRawFootage_',
+  'successResult_',
+  'syncPlatformCheckboxes_',
+  'taskBelongsInQueue_',
+  'textField_',
+  'textareaField_',
+  'timeField_',
+  'truncateForCalendar_',
+  'uniqueNonEmpty_',
+  'updateContentRecord_',
+  'upsertNamedRange_',
+  'urlField_',
+  'validateRequiredFields_',
+  'valueIncludesTeamMember_',
+  'writeContentValues_',
+  'writeIdeaBrainDumpValues_',
+  'writeSparseRowValues_',
+];
+
+function withTiming_(functionName, callback, metadata) {
+  if (!metadata || metadata.detail !== true) {
+    ensurePerformanceTimingWrappers_();
+  }
+  const settings = getPerformanceTimingSettings_();
+  if (!settings.enabled || (metadata && metadata.detail === true && !settings.detailed)) {
+    return callback();
+  }
+
+  const startMs = Date.now();
+  const depth = PERFORMANCE_TIMING_DEPTH_;
+  let status = 'ok';
+  PERFORMANCE_TIMING_DEPTH_ += 1;
+  try {
+    return callback();
+  } catch (error) {
+    status = 'error';
+    throw error;
+  } finally {
+    PERFORMANCE_TIMING_DEPTH_ = Math.max(PERFORMANCE_TIMING_DEPTH_ - 1, 0);
+    logPerformanceTiming_(functionName, Date.now() - startMs, status, metadata, depth);
+  }
+}
+
+function logPerformanceTiming_(functionName, durationMs, status, metadata, depth) {
+  const settings = getPerformanceTimingSettings_();
+  const entry = {
+    type: 'PERF_TIMING',
+    runId: getPerformanceTimingRunId_(),
+    runLabel: settings.runLabel || '',
+    detail: Boolean(metadata && metadata.detail === true),
+    functionName,
+    durationMs,
+    depth: depth || 0,
+    status,
+    timestamp: new Date().toISOString(),
+  };
+  if (metadata) {
+    entry.metadata = metadata;
+  }
+  console.log(JSON.stringify(entry));
+}
+
+function getPerformanceTimingSettings_() {
+  if (PERFORMANCE_TIMING_SETTINGS_) {
+    return PERFORMANCE_TIMING_SETTINGS_;
+  }
+
+  const properties = PropertiesService.getDocumentProperties();
+  const enabledValue = properties.getProperty(PERFORMANCE_TIMING_PROPERTY_KEYS.enabled);
+  const detailedValue = properties.getProperty(PERFORMANCE_TIMING_PROPERTY_KEYS.detailed);
+  PERFORMANCE_TIMING_SETTINGS_ = {
+    enabled: enabledValue === null ? PERFORMANCE_TIMING_DEFAULT_ENABLED : enabledValue === 'true',
+    detailed: detailedValue === null ? PERFORMANCE_TIMING_DEFAULT_DETAILED : detailedValue === 'true',
+    runLabel: properties.getProperty(PERFORMANCE_TIMING_PROPERTY_KEYS.runLabel) || '',
+  };
+  return PERFORMANCE_TIMING_SETTINGS_;
+}
+
+function ensurePerformanceTimingWrappers_() {
+  if (PERFORMANCE_TIMING_WRAPPERS_INSTALLED_) {
+    return;
+  }
+  PERFORMANCE_TIMED_FUNCTION_NAMES.forEach((functionName) => {
+    const original = globalThis[functionName];
+    if (typeof original !== 'function' || original[PERFORMANCE_TIMING_WRAPPED_MARKER_]) {
+      return;
+    }
+
+    const wrapped = function() {
+      return withTiming_(functionName, () => original.apply(this, arguments), { detail: true });
+    };
+    wrapped[PERFORMANCE_TIMING_WRAPPED_MARKER_] = true;
+    wrapped.__perfTimingOriginal = original;
+    globalThis[functionName] = wrapped;
+  });
+  PERFORMANCE_TIMING_WRAPPERS_INSTALLED_ = true;
+}
+
+function getPerformanceTimingRunId_() {
+  if (!PERFORMANCE_TIMING_RUN_ID_) {
+    PERFORMANCE_TIMING_RUN_ID_ = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss-SSS');
+  }
+  return PERFORMANCE_TIMING_RUN_ID_;
+}
+
+function enablePerformanceTiming() {
+  PropertiesService.getDocumentProperties().setProperty(PERFORMANCE_TIMING_PROPERTY_KEYS.enabled, 'true');
+  PERFORMANCE_TIMING_SETTINGS_ = null;
+  SpreadsheetApp.getActive().toast('Performance timing enabled.', 'Content Workflow', 5);
+}
+
+function disablePerformanceTiming() {
+  PropertiesService.getDocumentProperties().setProperty(PERFORMANCE_TIMING_PROPERTY_KEYS.enabled, 'false');
+  PERFORMANCE_TIMING_SETTINGS_ = null;
+  SpreadsheetApp.getActive().toast('Performance timing disabled.', 'Content Workflow', 5);
+}
+
+function enableDetailedPerformanceTiming() {
+  PropertiesService.getDocumentProperties().setProperty(PERFORMANCE_TIMING_PROPERTY_KEYS.detailed, 'true');
+  PERFORMANCE_TIMING_SETTINGS_ = null;
+  SpreadsheetApp.getActive().toast('Detailed function timing enabled.', 'Content Workflow', 5);
+}
+
+function disableDetailedPerformanceTiming() {
+  PropertiesService.getDocumentProperties().setProperty(PERFORMANCE_TIMING_PROPERTY_KEYS.detailed, 'false');
+  PERFORMANCE_TIMING_SETTINGS_ = null;
+  SpreadsheetApp.getActive().toast('Detailed function timing disabled. Entry-point timing remains available.', 'Content Workflow', 5);
+}
+
+function runPerformanceBenchmark() {
+  return runPerformanceBenchmarkSuite_({
+    operationName: 'runPerformanceBenchmark',
+    summaryLabel: 'CO_BENCHMARK_SUMMARY',
+    includeQa: true,
+    detailed: true,
+  });
+}
+
+function runHighTouchPerformanceBenchmark() {
+  return runPerformanceBenchmarkSuite_({
+    operationName: 'runHighTouchPerformanceBenchmark',
+    summaryLabel: 'CO_HIGH_TOUCH_BENCHMARK_SUMMARY',
+    includeQa: false,
+    detailed: false,
+  });
+}
+
+function runPerformanceBenchmarkSuite_(config) {
+  config = config || {};
+  const previousSettings = PERFORMANCE_TIMING_SETTINGS_;
+  PERFORMANCE_TIMING_RUN_ID_ = '';
+  PERFORMANCE_TIMING_SETTINGS_ = Object.assign({}, getPerformanceTimingSettings_(), {
+    enabled: true,
+    detailed: config.detailed !== false,
+  });
+  ensurePerformanceTimingWrappers_();
+
+  try {
+    return withTiming_(config.operationName || 'runPerformanceBenchmark', () => {
+      const generatedAt = new Date();
+      const steps = [];
+      const benchmarkStartMs = Date.now();
+      const operations = [
+        ['getWorkflowOptions', () => benchmarkWorkflowOptions_()],
+        ['getTaskQueueModel', () => benchmarkTaskQueueModel_()],
+        ['getTaskQueue:Brand Manager', () => benchmarkTaskQueueForUser_('Brand Manager')],
+        ['getTaskQueue:Estefanie', () => benchmarkTaskQueueForUser_('Estefanie')],
+        ['getTaskQueue:Admin', () => benchmarkTaskQueueForUser_('Admin')],
+        ['getWorkflowDialogModel:addIdea', () => benchmarkWorkflowDialogModelReadOnly_('addIdea')],
+        ['getWorkflowDialogModel:promoteIdea', () => benchmarkWorkflowDialogModelReadOnly_('promoteIdea')],
+        ['getWorkflowDialogModel:scheduleContent', () => benchmarkWorkflowDialogModelReadOnly_('scheduleContent')],
+        ['getCalendarEvents:filming', () => benchmarkCalendarEvents_('Filming Date', 'filming')],
+        ['getCalendarEvents:posting', () => benchmarkCalendarEvents_('Posting Date', 'posting')],
+      ];
+      if (config.includeQa !== false) {
+        operations.splice(8, 0, ['buildWorkflowQaRows', () => benchmarkWorkflowQaRows_()]);
+      }
+
+      operations.forEach(([operation, runner]) => {
+        steps.push(runBenchmarkOperation_(operation, runner));
+      });
+
+      const summary = {
+        ok: steps.every((step) => step.ok),
+        generatedAt: generatedAt.toISOString(),
+        readOnly: true,
+        note: config.detailed === false
+          ? 'Measures high-touch Apps Script server time only. Browser/network rendering time is not included. Detailed helper logs are disabled for a closer runtime measurement.'
+          : 'Measures Apps Script server time only. Browser/network rendering time is not included. Detailed PERF_TIMING logs show helper-level timings for functions called by these benchmark operations.',
+        steps,
+        totalMs: Date.now() - benchmarkStartMs,
+      };
+      console.log(`${config.summaryLabel || 'CO_BENCHMARK_SUMMARY'} ${JSON.stringify(summary, null, 2)}`);
+      return summary;
+    });
+  } finally {
+    PERFORMANCE_TIMING_SETTINGS_ = previousSettings;
+  }
+}
+
+function runBenchmarkOperation_(operation, runner) {
+  const startMs = Date.now();
+  let ok = true;
+  let result = {};
+  let error = '';
+
+  try {
+    result = runner() || {};
+  } catch (caughtError) {
+    ok = false;
+    error = caughtError && caughtError.message ? caughtError.message : String(caughtError);
+  }
+
+  const step = {
+    operation,
+    ok,
+    result,
+    ms: Date.now() - startMs,
+  };
+  if (error) {
+    step.error = error;
+  }
+  console.log(`CO_BENCHMARK_STEP ${JSON.stringify(step)}`);
+  return step;
+}
+
+function createBenchmarkTimer_(operation) {
+  const operationStartMs = Date.now();
+  return {
+    step(stepName, callback, extraBuilder) {
+      const stepStartMs = Date.now();
+      const result = callback();
+      const extra = typeof extraBuilder === 'function' ? extraBuilder(result) : extraBuilder || {};
+      console.log(`CO_TIMING_STEP ${JSON.stringify({
+        operation,
+        step: stepName,
+        ms: Date.now() - stepStartMs,
+        totalMs: Date.now() - operationStartMs,
+        extra,
+      })}`);
+      return result;
+    },
+    finish() {
+      const ms = Date.now() - operationStartMs;
+      console.log(`CO_TIMING ${JSON.stringify({ operation, ms })}`);
+      return ms;
+    },
+  };
+}
+
+function benchmarkWorkflowOptions_() {
+  const operation = 'getWorkflowOptions';
+  const timer = createBenchmarkTimer_(operation);
+  const spreadsheet = timer.step('spreadsheet', () => SpreadsheetApp.getActive());
+  const options = timer.step('workflowOptions', () => getWorkflowOptions_(spreadsheet), (result) => ({
+    lists: Object.keys(result).length,
+    teamMembers: result.teamMembers.length,
+    statuses: result.statuses.length,
+    subjects: result.subjects.length,
+    momentActions: result.momentActions.length,
+  }));
+  timer.finish();
+  return {
+    lists: Object.keys(options).length,
+    teamMembers: options.teamMembers.length,
+    statuses: options.statuses.length,
+  };
+}
+
+function benchmarkTaskQueueModel_() {
+  const operation = 'getTaskQueueModel';
+  const timer = createBenchmarkTimer_(operation);
+  const model = timer.step('model', () => getTaskQueueModel(), (result) => ({
+    users: result.users.length,
+    defaultUser: result.defaultUser,
+  }));
+  timer.finish();
+  return {
+    users: model.users.length,
+    defaultUser: model.defaultUser,
+  };
+}
+
+function benchmarkTaskQueueForUser_(userName) {
+  const operation = `getTaskQueue:${userName}`;
+  const timer = createBenchmarkTimer_(operation);
+  const spreadsheet = timer.step('spreadsheet', () => SpreadsheetApp.getActive());
+  const context = timer.step('contentContext', () => {
+    const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
+    const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
+    const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
+    const lastDataRow = getLastContentDataRow_(sheet, contentIdColumn);
+    const rowCount = Math.max(lastDataRow - PHASE1.rows.contentDataStart + 1, 0);
+    return {
+      sheet,
+      columnMap,
+      lastDataRow,
+      rowCount,
+      lastColumn: sheet.getLastColumn(),
+    };
+  }, (result) => ({
+    rows: result.rowCount,
+    columns: result.lastColumn,
+  }));
+  const values = context.rowCount
+    ? timer.step('contentRowsRead', () => (
+      context.sheet.getRange(PHASE1.rows.contentDataStart, 1, context.rowCount, context.lastColumn).getDisplayValues()
+    ), { rows: context.rowCount, columns: context.lastColumn })
+    : [];
+  const revisionHistoryMap = timer.step('revisionHistoryRead', () => getRevisionHistoryMap_(spreadsheet), (result) => ({
+    contentIds: Object.keys(result).length,
+  }));
+  const payload = timer.step('taskPayloadBuild', () => {
+    const normalizedUser = String(userName || '').trim();
+    const tasks = values
+      .map((row, index) => rowToContentRecord_(row, context.columnMap, PHASE1.rows.contentDataStart + index))
+      .filter((record) => record.contentId && record.status !== 'Posted')
+      .filter((record) => taskBelongsInQueue_(record, normalizedUser))
+      .map((record) => hydrateTaskQueueRecord_(record, revisionHistoryMap, normalizedUser));
+    return buildTaskQueuePayload_(groupDualBrandFilmingTasks_(tasks, normalizedUser).slice(0, 100), normalizedUser);
+  }, (result) => ({
+    tasks: result.tasks.length,
+    statuses: Object.keys(result.summary.byStatus).length,
+    owners: Object.keys(result.summary.byOwner).length,
+  }));
+  timer.finish();
+  return {
+    userName: payload.userName,
+    tasks: payload.tasks.length,
+    summary: payload.summary,
+  };
+}
+
+function benchmarkWorkflowDialogModelReadOnly_(action) {
+  const operation = `getWorkflowDialogModel:${action}`;
+  const timer = createBenchmarkTimer_(operation);
+  const spreadsheet = timer.step('spreadsheet', () => SpreadsheetApp.getActive());
+  const config = timer.step('config', () => getWorkflowActionConfig_(action), (result) => ({
+    fields: result.fields.length,
+  }));
+  const options = timer.step('options', () => getWorkflowOptions_(spreadsheet), (result) => ({
+    teamMembers: result.teamMembers.length,
+    statuses: result.statuses.length,
+  }));
+  const defaults = timer.step('defaults', () => buildWorkflowDefaults_(action, null, null, ''), (result) => ({
+    keys: Object.keys(result).length,
+  }));
+  timer.finish();
+  return {
+    action,
+    fields: config.fields.length,
+    optionLists: Object.keys(options).length,
+    defaultKeys: Object.keys(defaults).length,
+  };
+}
+
+function benchmarkWorkflowQaRows_() {
+  const operation = 'buildWorkflowQaRows';
+  const timer = createBenchmarkTimer_(operation);
+  const rows = timer.step('qaRows', () => buildWorkflowQaRows_(), (result) => ({
+    issues: result.length,
+  }));
+  timer.finish();
+  return {
+    issues: rows.length,
+  };
+}
+
+function benchmarkCalendarEvents_(dateHeader, eventType) {
+  const operation = `getCalendarEvents:${eventType}`;
+  const timer = createBenchmarkTimer_(operation);
+  const spreadsheet = timer.step('spreadsheet', () => SpreadsheetApp.getActive());
+  const columnMap = timer.step('columnMap', () => getHeaderMap_(requireSheet_(spreadsheet, PHASE1.sheets.content), PHASE1.rows.contentHeader), (result) => ({
+    columns: Object.keys(result).length,
+  }));
+  const eventsByDate = timer.step('eventsByDate', () => getCalendarEventsByDate_(spreadsheet, columnMap, {
+    dateHeader,
+    eventType,
+  }), (result) => ({
+    dates: Object.keys(result).length,
+    events: Object.keys(result).reduce((count, key) => count + result[key].length, 0),
+  }));
+  timer.finish();
+  return {
+    eventType,
+    dates: Object.keys(eventsByDate).length,
+    events: Object.keys(eventsByDate).reduce((count, key) => count + eventsByDate[key].length, 0),
+  };
+}
+
+function setPerformanceTimingRunLabel(label) {
+  let rawLabel = label;
+  if (rawLabel === undefined) {
+    const response = SpreadsheetApp.getUi().prompt(
+      'Performance Timing Label',
+      'Enter a label such as baseline-task-queue or after-batch-writes.',
+      SpreadsheetApp.getUi().ButtonSet.OK_CANCEL
+    );
+    if (response.getSelectedButton() !== SpreadsheetApp.getUi().Button.OK) {
+      return;
+    }
+    rawLabel = response.getResponseText();
+  }
+  const nextLabel = String(rawLabel || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss')).trim();
+  PropertiesService.getDocumentProperties().setProperty(PERFORMANCE_TIMING_PROPERTY_KEYS.runLabel, nextLabel);
+  PERFORMANCE_TIMING_SETTINGS_ = null;
+  SpreadsheetApp.getActive().toast(`Performance timing label set to ${nextLabel}.`, 'Content Workflow', 5);
+}
+
 const WORKFLOW_TRANSITIONS = {
   assignFilming: {
     label: 'Assign Filming',
@@ -481,33 +1122,35 @@ const IDEA_BRAIN_DUMP = {
 };
 
 function setupPhase1DatabaseFoundation() {
-  const spreadsheet = SpreadsheetApp.getActive();
-  const activityLog = ensureActivityLog_(spreadsheet);
-  const revisionLog = ensureRevisionLog_(spreadsheet);
-  const configRanges = ensureWorkflowSettings_(spreadsheet);
-  const columnMap = rebuildContentPlanningSchema_(spreadsheet);
-  rebuildIdeaBrainDumpSheet_(spreadsheet);
-  const statusChanges = standardizeExistingStatuses_(spreadsheet, columnMap, activityLog);
+  return withTiming_('setupPhase1DatabaseFoundation', () => {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const activityLog = ensureActivityLog_(spreadsheet);
+    const revisionLog = ensureRevisionLog_(spreadsheet);
+    const configRanges = withTiming_('setup.ensureWorkflowSettings_', () => ensureWorkflowSettings_(spreadsheet));
+    const columnMap = withTiming_('setup.rebuildContentPlanningSchema_', () => rebuildContentPlanningSchema_(spreadsheet));
+    withTiming_('setup.rebuildIdeaBrainDumpSheet_', () => rebuildIdeaBrainDumpSheet_(spreadsheet));
+    const statusChanges = withTiming_('setup.standardizeExistingStatuses_', () => standardizeExistingStatuses_(spreadsheet, columnMap, activityLog));
 
-  applyWorkflowValidations_(spreadsheet, columnMap, configRanges);
-  rebuildDependentViewTabs_(spreadsheet, columnMap);
-  if (typeof buildWorkflowInstructionsTab === 'function') {
-    buildWorkflowInstructionsTab();
-  }
-  flagCredentialSecurityCleanup_(spreadsheet, activityLog);
+    withTiming_('setup.applyWorkflowValidations_', () => applyWorkflowValidations_(spreadsheet, columnMap, configRanges));
+    withTiming_('setup.rebuildDependentViewTabs_', () => rebuildDependentViewTabs_(spreadsheet, columnMap));
+    if (typeof buildWorkflowInstructionsTab === 'function') {
+      buildWorkflowInstructionsTab();
+    }
+    flagCredentialSecurityCleanup_(spreadsheet, activityLog);
 
-  spreadsheet.toast(
-    `Phase 1 setup complete. ${statusChanges} status value(s) standardized.`,
-    'Content Workflow',
-    8
-  );
+    spreadsheet.toast(
+      `Phase 1 setup complete. ${statusChanges} status value(s) standardized.`,
+      'Content Workflow',
+      8
+    );
 
-  return {
-    activityLog: activityLog.getName(),
-    revisionLog: revisionLog.getName(),
-    standardizedStatusCount: statusChanges,
-    workflowColumnCount: getContentPlanningHeaders_().length,
-  };
+    return {
+      activityLog: activityLog.getName(),
+      revisionLog: revisionLog.getName(),
+      standardizedStatusCount: statusChanges,
+      workflowColumnCount: getContentPlanningHeaders_().length,
+    };
+  });
 }
 
 function onOpen() {
@@ -532,16 +1175,71 @@ function onOpen() {
     .addItem('Apply Team Name Updates', 'applyTeamNameUpdates')
     .addItem('Run Workflow QA Check', 'runWorkflowQaCheck')
     .addItem('Rebuild Calendar Views', 'rebuildCalendarViews')
+    .addItem('Refresh Subject/Moment Dropdowns', 'refreshSubjectMomentActionValidations')
+    .addSeparator()
+    .addItem('Enable Performance Timing', 'enablePerformanceTiming')
+    .addItem('Disable Performance Timing', 'disablePerformanceTiming')
+    .addItem('Enable Detailed Function Timing', 'enableDetailedPerformanceTiming')
+    .addItem('Disable Detailed Function Timing', 'disableDetailedPerformanceTiming')
+    .addItem('Set Performance Timing Label', 'setPerformanceTimingRunLabel')
+    .addItem('Run Performance Benchmark', 'runPerformanceBenchmark')
+    .addSeparator()
     .addItem('Rebuild Workflow Instructions', 'buildWorkflowInstructionsTab')
     .addItem('Run Phase 1 Setup', 'setupPhase1DatabaseFoundation')
     .addToUi();
 }
 
+function onEdit(e) {
+  handleMultiSelectValidationEdit_(e);
+}
+
 function rebuildCalendarViews() {
-  const spreadsheet = SpreadsheetApp.getActive();
-  const columnMap = ensureWorkflowColumns_(spreadsheet);
-  rebuildDependentViewTabs_(spreadsheet, columnMap, { includeKanban: false });
-  spreadsheet.toast('Calendar views rebuilt.', 'Content Workflow', 5);
+  return withTiming_('rebuildCalendarViews', () => {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const columnMap = ensureWorkflowColumns_(spreadsheet);
+    rebuildDependentViewTabs_(spreadsheet, columnMap, { includeKanban: false });
+    spreadsheet.toast('Calendar views rebuilt.', 'Content Workflow', 5);
+  });
+}
+
+function refreshSubjectMomentActionValidations() {
+  return withTiming_('refreshSubjectMomentActionValidations', () => {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const subjectRange = spreadsheet.getRangeByName(configRangeName_('Subjects'));
+    const momentActionRange = spreadsheet.getRangeByName(configRangeName_('Moment Actions'));
+    const contentSheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
+    const contentHeaderRow = getExistingContentHeaderRow_(contentSheet);
+
+    if (!subjectRange || !momentActionRange) {
+      throw new Error('Subject or Moment Action settings ranges were not found. Check 5. Settings before refreshing dropdowns.');
+    }
+
+    refreshSubjectMomentActionValidationForSheet_(spreadsheet, {
+      sheetName: PHASE1.sheets.content,
+      headerRow: contentHeaderRow,
+      dataStart: contentHeaderRow === PHASE1.rows.contentHeader ? PHASE1.rows.contentDataStart : 6,
+      subjectRange,
+      momentActionRange,
+    });
+    refreshSubjectMomentActionValidationForSheet_(spreadsheet, {
+      sheetName: IDEA_BRAIN_DUMP.sheetName,
+      headerRow: IDEA_BRAIN_DUMP.headerRow,
+      dataStart: IDEA_BRAIN_DUMP.dataStart,
+      subjectRange,
+      momentActionRange,
+    });
+
+    spreadsheet.toast('Subject and Moment/Action dropdowns refreshed only.', 'Content Workflow', 5);
+  });
+}
+
+function refreshSubjectMomentActionValidationForSheet_(spreadsheet, config) {
+  const sheet = requireSheet_(spreadsheet, config.sheetName);
+  const columnMap = getHeaderMap_(sheet, config.headerRow);
+  const rowCount = Math.max(sheet.getMaxRows() - config.dataStart + 1, 1);
+
+  applyValidationToColumnForStart_(sheet, columnMap.Subject, config.dataStart, rowCount, config.subjectRange, true);
+  applyValidationToColumnForStart_(sheet, columnMap['Moment / Action'], config.dataStart, rowCount, config.momentActionRange, true);
 }
 
 function openAddNewIdeaDialog() {
@@ -614,104 +1312,98 @@ function openWorkflowDialogForTask(action, contentId) {
 }
 
 function getWorkflowDialogModel(action, prefillContentId) {
-  const config = getWorkflowActionConfig_(action);
-  const spreadsheet = SpreadsheetApp.getActive();
-  const options = getWorkflowOptions_(spreadsheet);
-  const selectedContent = prefillContentId ? getContentRecordById_(prefillContentId) : getSelectedContentContext_(spreadsheet);
-  const selectedIdea = getSelectedIdeaContext_(spreadsheet);
-  const display = getWorkflowActionDisplay_(action, selectedContent);
+  return withTiming_('getWorkflowDialogModel', () => {
+    const config = getWorkflowActionConfig_(action);
+    const spreadsheet = SpreadsheetApp.getActive();
+    const options = getWorkflowOptions_(spreadsheet);
+    const selectedContent = prefillContentId ? getContentRecordById_(prefillContentId) : getSelectedContentContext_(spreadsheet);
+    const selectedIdea = getSelectedIdeaContext_(spreadsheet);
+    const display = getWorkflowActionDisplay_(action, selectedContent);
 
-  return {
-    action,
-    title: display.title || config.title,
-    submitLabel: display.submitLabel || config.submitLabel,
-    fields: config.fields,
-    options,
-    selectedContent,
-    selectedIdea,
-    contextLines: buildWorkflowContextLines_(action, selectedContent),
-    defaults: buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillContentId),
-  };
+    return {
+      action,
+      title: display.title || config.title,
+      submitLabel: display.submitLabel || config.submitLabel,
+      fields: config.fields,
+      options,
+      selectedContent,
+      selectedIdea,
+      contextLines: buildWorkflowContextLines_(action, selectedContent),
+      defaults: buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillContentId),
+    };
+  }, { action, prefillContentId: prefillContentId || '' });
 }
 
 function submitWorkflowDialog(action, payload) {
-  const cleanPayload = sanitizePayload_(payload || {});
+  return withTiming_('submitWorkflowDialog', () => {
+    const cleanPayload = sanitizePayload_(payload || {});
 
-  switch (action) {
-    case 'addIdea':
-      return addNewIdea_(cleanPayload);
-    case 'promoteIdea':
-      return promoteIdeaToPlanning_(cleanPayload);
-    case 'assignFilming':
-      return assignFilmingTask_(cleanPayload);
-    case 'submitRawFootage':
-      return submitRawFootage_(cleanPayload);
-    case 'startEditing':
-      return startEditing_(cleanPayload);
-    case 'submitEditedVersion':
-      return submitEditedVersion_(cleanPayload);
-    case 'reviewApprove':
-      return reviewApproveContent_(cleanPayload);
-    case 'scheduleContent':
-      return scheduleContent_(cleanPayload);
-    case 'markPosted':
-      return markContentPosted_(cleanPayload);
-    case 'adminOverride':
-      return adminOverrideContent_(cleanPayload);
-    default:
-      throw new Error(`Unknown workflow action: ${action}`);
-  }
+    switch (action) {
+      case 'addIdea':
+        return addNewIdea_(cleanPayload);
+      case 'promoteIdea':
+        return promoteIdeaToPlanning_(cleanPayload);
+      case 'assignFilming':
+        return assignFilmingTask_(cleanPayload);
+      case 'submitRawFootage':
+        return submitRawFootage_(cleanPayload);
+      case 'startEditing':
+        return startEditing_(cleanPayload);
+      case 'submitEditedVersion':
+        return submitEditedVersion_(cleanPayload);
+      case 'reviewApprove':
+        return reviewApproveContent_(cleanPayload);
+      case 'scheduleContent':
+        return scheduleContent_(cleanPayload);
+      case 'markPosted':
+        return markContentPosted_(cleanPayload);
+      case 'adminOverride':
+        return adminOverrideContent_(cleanPayload);
+      default:
+        throw new Error(`Unknown workflow action: ${action}`);
+    }
+  }, { action });
 }
 
 function getTaskQueueModel() {
-  const options = getWorkflowOptions_(SpreadsheetApp.getActive());
-  return {
-    users: options.teamMembers,
-    defaultUser: 'Brand Manager',
-  };
+  return withTiming_('getTaskQueueModel', () => {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const valuesByTitle = getWorkflowSettingsValuesMap_(spreadsheet);
+    const users = replaceLegacyTeamNamesInList_(getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Team Members'));
+    return {
+      users,
+      defaultUser: 'Brand Manager',
+    };
+  });
 }
 
 function getTaskQueue(userName) {
-  const spreadsheet = SpreadsheetApp.getActive();
-  const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
-  const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
-  const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
-  const lastDataRow = getLastContentDataRow_(sheet, contentIdColumn);
-  const normalizedUser = String(userName || '').trim();
+  return withTiming_('getTaskQueue', () => {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
+    const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
+    const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
+    const lastDataRow = getLastContentDataRow_(sheet, contentIdColumn);
+    const normalizedUser = String(userName || '').trim();
 
-  if (lastDataRow < PHASE1.rows.contentDataStart) {
-    return buildTaskQueuePayload_([], normalizedUser);
-  }
+    if (lastDataRow < PHASE1.rows.contentDataStart) {
+      return buildTaskQueuePayload_([], normalizedUser);
+    }
 
-  const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
-  const values = sheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, sheet.getLastColumn()).getDisplayValues();
-  const revisionHistoryMap = getRevisionHistoryMap_();
+    const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
+    const values = withTiming_('getTaskQueue.readContentRows', () => (
+      sheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, sheet.getLastColumn()).getDisplayValues()
+    ), { rowCount });
+    const revisionHistoryMap = withTiming_('getTaskQueue.getRevisionHistoryMap_', () => getRevisionHistoryMap_(spreadsheet));
 
-  const tasks = values
-    .map((row, index) => rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index))
-    .filter((record) => record.contentId && record.status !== 'Posted')
-    .filter((record) => taskBelongsInQueue_(record, normalizedUser))
-    .map((record) => {
-      const revisionHistory = revisionHistoryMap[normalizeContentId_(record.contentId)] || [];
-      record.latestVersion = getCurrentEditVersion_(record, revisionHistory);
-      record.latestEditedUrl = getLatestEditedUrl_(record, revisionHistory);
-      record.brandManagerFeedback = record['Brand Manager Feedback'] || '';
-      record.editorNotes = record['Editor Notes'] || '';
-      record.platforms = record['Platform(s)'] || '';
-      record.postingDate = record['Posting Date'] || '';
-      record.postingTime = record.Time || '';
-      record.finalApprovedVideoUrl = getApprovedVideoUrlForScheduling_(record, revisionHistory);
-      record.schedulingReadiness = getSchedulingReadiness_(record, revisionHistory);
-      record.postingContext = getPostingContext_(record);
-      record.blockerIssue = record['Blocker / Issue'] || '';
-      record.isBlocked = Boolean(record.blockerIssue);
-      record.isOverdue = isRecordOverdue_(record);
-      record.overdueLabel = getOverdueLabel_(record);
-      record.availableActions = getAvailableActionsForRecord_(record, normalizedUser);
-      return record;
-    });
+    const tasks = withTiming_('getTaskQueue.buildTasks', () => values
+      .map((row, index) => rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index))
+      .filter((record) => record.contentId && record.status !== 'Posted')
+      .filter((record) => taskBelongsInQueue_(record, normalizedUser))
+      .map((record) => hydrateTaskQueueRecord_(record, revisionHistoryMap, normalizedUser)));
 
-  return buildTaskQueuePayload_(groupDualBrandFilmingTasks_(tasks, normalizedUser).slice(0, 100), normalizedUser);
+    return buildTaskQueuePayload_(groupDualBrandFilmingTasks_(tasks, normalizedUser).slice(0, 100), normalizedUser);
+  }, { userName: String(userName || '') });
 }
 
 function buildTaskQueuePayload_(tasks, userName) {
@@ -720,6 +1412,30 @@ function buildTaskQueuePayload_(tasks, userName) {
     tasks,
     summary: buildTaskQueueSummary_(tasks),
   };
+}
+
+function hydrateTaskQueueRecord_(record, revisionHistoryMap, userName) {
+  const revisionHistory = revisionHistoryMap[normalizeContentId_(record.contentId)] || [];
+  const latestEditedUrl = getLatestEditedUrl_(record, revisionHistory);
+  const finalApprovedVideoUrl = getApprovedVideoUrlForScheduling_(record, revisionHistory);
+  const overdueLabel = getOverdueLabel_(record);
+
+  record.latestVersion = getCurrentEditVersion_(record, revisionHistory);
+  record.latestEditedUrl = latestEditedUrl;
+  record.brandManagerFeedback = record['Brand Manager Feedback'] || '';
+  record.editorNotes = record['Editor Notes'] || '';
+  record.platforms = record['Platform(s)'] || '';
+  record.postingDate = record['Posting Date'] || '';
+  record.postingTime = record.Time || '';
+  record.finalApprovedVideoUrl = finalApprovedVideoUrl;
+  record.schedulingReadiness = getSchedulingReadiness_(record, revisionHistory);
+  record.postingContext = getPostingContext_(record, revisionHistory, finalApprovedVideoUrl);
+  record.blockerIssue = record['Blocker / Issue'] || '';
+  record.isBlocked = Boolean(record.blockerIssue);
+  record.overdueLabel = overdueLabel;
+  record.isOverdue = Boolean(overdueLabel);
+  record.availableActions = getAvailableActionsForRecord_(record, userName);
+  return record;
 }
 
 function buildTaskQueueSummary_(tasks) {
@@ -793,48 +1509,52 @@ function groupDualBrandFilmingTasks_(tasks, userName) {
 }
 
 function runWorkflowQaCheck() {
-  const spreadsheet = SpreadsheetApp.getActive();
-  const reportSheet = ensureWorkflowQaReport_(spreadsheet);
-  const rows = buildWorkflowQaRows_();
+  return withTiming_('runWorkflowQaCheck', () => {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const reportSheet = ensureWorkflowQaReport_(spreadsheet);
+    const rows = withTiming_('runWorkflowQaCheck.buildWorkflowQaRows_', () => buildWorkflowQaRows_());
 
-  clearWorkflowQaReport_(reportSheet);
-  if (rows.length) {
-    reportSheet.getRange(PHASE1.rows.logHeader + 1, 1, rows.length, PHASE1.workflowQaHeaders.length)
-      .setValues(rows);
-  }
-  reportSheet.autoResizeColumns(1, PHASE1.workflowQaHeaders.length);
-  spreadsheet.toast(`Workflow QA complete. ${rows.length} issue(s) found.`, 'Content Workflow', 8);
+    clearWorkflowQaReport_(reportSheet);
+    if (rows.length) {
+      reportSheet.getRange(PHASE1.rows.logHeader + 1, 1, rows.length, PHASE1.workflowQaHeaders.length)
+        .setValues(rows);
+    }
+    reportSheet.autoResizeColumns(1, PHASE1.workflowQaHeaders.length);
+    spreadsheet.toast(`Workflow QA complete. ${rows.length} issue(s) found.`, 'Content Workflow', 8);
 
-  return {
-    issueCount: rows.length,
-    reportSheet: reportSheet.getName(),
-  };
+    return {
+      issueCount: rows.length,
+      reportSheet: reportSheet.getName(),
+    };
+  });
 }
 
 function applyTeamNameUpdates() {
-  const spreadsheet = SpreadsheetApp.getActive();
-  const contentUpdates = replaceLegacyTeamNamesInContent_(spreadsheet);
-  const configRanges = ensureWorkflowSettings_(spreadsheet);
-  const columnMap = ensureWorkflowColumns_(spreadsheet);
-  const activityLog = ensureActivityLog_(spreadsheet);
-  const statusChanges = standardizeExistingStatuses_(spreadsheet, columnMap, activityLog);
+  return withTiming_('applyTeamNameUpdates', () => {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const contentUpdates = replaceLegacyTeamNamesInContent_(spreadsheet);
+    const configRanges = ensureWorkflowSettings_(spreadsheet);
+    const columnMap = ensureWorkflowColumns_(spreadsheet);
+    const activityLog = ensureActivityLog_(spreadsheet);
+    const statusChanges = standardizeExistingStatuses_(spreadsheet, columnMap, activityLog);
 
-  applyWorkflowValidations_(spreadsheet, columnMap, configRanges);
-  appendActivityLog_(
-    '',
-    'TEAM_NAME_UPDATE',
-    '',
-    '',
-    `Renamed legacy team names in workflow data to Brand Manager, Thao, and Estefanie. Updated ${contentUpdates} content cell(s) and ${statusChanges} status value(s).`,
-    ''
-  );
+    applyWorkflowValidations_(spreadsheet, columnMap, configRanges);
+    appendActivityLog_(
+      '',
+      'TEAM_NAME_UPDATE',
+      '',
+      '',
+      `Renamed legacy team names in workflow data to Brand Manager, Thao, and Estefanie. Updated ${contentUpdates} content cell(s) and ${statusChanges} status value(s).`,
+      ''
+    );
 
-  spreadsheet.toast(`Team name update complete. ${contentUpdates} content cell(s) and ${statusChanges} status value(s) changed.`, 'Content Workflow', 8);
+    spreadsheet.toast(`Team name update complete. ${contentUpdates} content cell(s) and ${statusChanges} status value(s) changed.`, 'Content Workflow', 8);
 
-  return {
-    updatedContentCells: contentUpdates,
-    updatedStatusCells: statusChanges,
-  };
+    return {
+      updatedContentCells: contentUpdates,
+      updatedStatusCells: statusChanges,
+    };
+  });
 }
 
 function replaceLegacyTeamNamesInContent_(spreadsheet) {
@@ -1127,8 +1847,8 @@ function getWorkflowActionConfig_(action) {
         selectField_('format', 'Format', 'formats', true),
         selectField_('goal', 'Goal', 'goals', false),
         textField_('ideaTitle', 'Idea / title', true),
-        selectField_('subject', 'Subject', 'subjects', false),
-        selectField_('momentAction', 'Moment / Action', 'momentActions', false),
+        multiSelectField_('subject', 'Subject', 'subjects', false),
+        multiSelectField_('momentAction', 'Moment / Action', 'momentActions', false),
         urlField_('inspirationLink', 'Inspiration link', false),
         textareaField_('notes', 'Notes', false),
       ],
@@ -1143,8 +1863,8 @@ function getWorkflowActionConfig_(action) {
         selectField_('format', 'Format', 'formats', true),
         selectField_('goal', 'Goal', 'goals', false),
         textField_('ideaTitle', 'Idea / title', true),
-        selectField_('subject', 'Subject', 'subjects', false),
-        selectField_('momentAction', 'Moment / action', 'momentActions', false),
+        multiSelectField_('subject', 'Subject', 'subjects', false),
+        multiSelectField_('momentAction', 'Moment / action', 'momentActions', false),
         textareaField_('shotList', 'Shot list', false),
         textareaField_('filmingInstructions', 'Filming instructions', false),
         selectField_('assignedFilmer', 'Assigned filmer(s)', 'filmerAssignments', false),
@@ -1289,14 +2009,16 @@ function promoteIdeaToPlanning_(payload) {
   const conceptId = getNextConceptId_(contentSheet, columnMap[PHASE1.coreHeaders.contentId]);
   const deliverables = buildBrandDeliverables_(conceptId, payload.brandSet);
   const status = payload.assignedFilmer && payload.filmingDate ? 'Assigned to Film' : 'Planned';
-  const createdContentIds = [];
+  const headers = getContentPlanningHeaders_();
+  const startRow = getNextContentRow_(contentSheet, columnMap[PHASE1.coreHeaders.contentId]);
+  const promotedRecords = deliverables.map((deliverable) => buildPromotedContentValues_(payload, deliverable, status));
+  const promotedValues = promotedRecords.map((record) => headers.map((header) => (
+    Object.prototype.hasOwnProperty.call(record, header) ? record[header] : ''
+  )));
+  const createdContentIds = deliverables.map((deliverable) => deliverable.contentId);
 
-  deliverables.forEach((deliverable) => {
-    const row = getNextContentRow_(contentSheet, columnMap[PHASE1.coreHeaders.contentId]);
-    ensureRows_(contentSheet, row);
-    writeContentValues_(contentSheet, row, columnMap, buildPromotedContentValues_(payload, deliverable, status));
-    createdContentIds.push(deliverable.contentId);
-  });
+  ensureRows_(contentSheet, startRow + promotedValues.length - 1);
+  contentSheet.getRange(startRow, 1, promotedValues.length, headers.length).setValues(promotedValues);
   styleContentPlanningDataRows_(contentSheet, columnMap);
 
   ensureIdeaBrainDumpColumns_(ideaSheet);
@@ -1588,22 +2310,23 @@ function adminOverrideContent_(payload) {
 }
 
 function getWorkflowOptions_(spreadsheet) {
+  const valuesByTitle = getWorkflowSettingsValuesMap_(spreadsheet);
   return {
-    statuses: getConfigListValues_(spreadsheet, 'Statuses'),
-    teamMembers: replaceLegacyTeamNamesInList_(getConfigListValues_(spreadsheet, 'Team Members')),
-    roles: getConfigListValues_(spreadsheet, 'Roles'),
-    filmerAssignments: replaceLegacyTeamNamesInList_(getConfigListValues_(spreadsheet, 'Filmer Assignment Values')),
-    brands: getConfigListValues_(spreadsheet, 'Brands'),
-    dualBrandSets: getConfigListValues_(spreadsheet, 'Dual Brand Sets'),
-    originalCompanionValues: getConfigListValues_(spreadsheet, 'Original / Companion'),
-    spacingStatuses: getConfigListValues_(spreadsheet, 'Spacing Statuses'),
-    platforms: getConfigListValues_(spreadsheet, 'Platforms'),
-    priorities: getConfigListValues_(spreadsheet, 'Priorities'),
-    subjects: getConfigListValues_(spreadsheet, 'Subjects'),
-    momentActions: getConfigListValues_(spreadsheet, 'Moment Actions'),
-    contentPillars: getConfigListValues_(spreadsheet, 'Content Pillars'),
-    formats: getConfigListValues_(spreadsheet, 'Formats'),
-    goals: getConfigListValues_(spreadsheet, 'Goals'),
+    statuses: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Statuses'),
+    teamMembers: replaceLegacyTeamNamesInList_(getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Team Members')),
+    roles: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Roles'),
+    filmerAssignments: replaceLegacyTeamNamesInList_(getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Filmer Assignment Values')),
+    brands: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Brands'),
+    dualBrandSets: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Dual Brand Sets'),
+    originalCompanionValues: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Original / Companion'),
+    spacingStatuses: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Spacing Statuses'),
+    platforms: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Platforms'),
+    priorities: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Priorities'),
+    subjects: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Subjects'),
+    momentActions: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Moment Actions'),
+    contentPillars: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Content Pillars'),
+    formats: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Formats'),
+    goals: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Goals'),
     reviewDecisions: ['Approve', 'Request Revision'],
   };
 }
@@ -1950,9 +2673,7 @@ function actionLabel_(action) {
 
 function writeContentValues_(sheet, row, columnMap, valuesByHeader) {
   assertWritableHeaders_(columnMap, Object.keys(valuesByHeader));
-  Object.keys(valuesByHeader).forEach((header) => {
-    sheet.getRange(row, columnMap[header]).setValue(valuesByHeader[header]);
-  });
+  writeSparseRowValues_(sheet, row, columnMap, valuesByHeader);
 }
 
 function assertWritableHeaders_(columnMap, headers) {
@@ -1960,6 +2681,52 @@ function assertWritableHeaders_(columnMap, headers) {
   if (missingHeaders.length) {
     throw new Error(`Cannot update content row because these columns are missing from ${PHASE1.sheets.content}: ${missingHeaders.join(', ')}. Run setupPhase1DatabaseFoundation() and try again.`);
   }
+}
+
+function writeSparseRowValues_(sheet, row, columnMap, valuesByHeader, normalizeValue) {
+  const entries = Object.keys(valuesByHeader)
+    .filter((header) => columnMap[header])
+    .map((header) => ({
+      column: columnMap[header],
+      value: normalizeValue ? normalizeValue(header, valuesByHeader[header]) : valuesByHeader[header],
+    }))
+    .sort((a, b) => a.column - b.column);
+
+  let groupStartColumn = 0;
+  let groupValues = [];
+  let previousColumn = 0;
+
+  const flush = () => {
+    if (!groupValues.length) {
+      return;
+    }
+    sheet.getRange(row, groupStartColumn, 1, groupValues.length).setValues([groupValues]);
+    groupStartColumn = 0;
+    groupValues = [];
+    previousColumn = 0;
+  };
+
+  entries.forEach((entry) => {
+    if (!groupValues.length) {
+      groupStartColumn = entry.column;
+      groupValues.push(entry.value);
+      previousColumn = entry.column;
+      return;
+    }
+
+    if (entry.column === previousColumn + 1) {
+      groupValues.push(entry.value);
+      previousColumn = entry.column;
+      return;
+    }
+
+    flush();
+    groupStartColumn = entry.column;
+    groupValues.push(entry.value);
+    previousColumn = entry.column;
+  });
+
+  flush();
 }
 
 function rowToContentRecord_(rowValues, columnMap, rowNumber) {
@@ -2082,8 +2849,11 @@ function getRevisionHistory_(contentId) {
   return getRevisionHistoryMap_()[normalizeContentId_(contentId)] || [];
 }
 
-function getRevisionHistoryMap_() {
-  const revisionLog = ensureRevisionLog_(SpreadsheetApp.getActive());
+function getRevisionHistoryMap_(spreadsheet) {
+  const revisionLog = (spreadsheet || SpreadsheetApp.getActive()).getSheetByName(PHASE1.sheets.revisionLog);
+  if (!revisionLog) {
+    return {};
+  }
   const lastRow = revisionLog.getLastRow();
 
   if (lastRow <= PHASE1.rows.logHeader) {
@@ -2185,13 +2955,13 @@ function getSchedulingReadiness_(record, revisionHistory) {
   };
 }
 
-function getPostingContext_(record) {
+function getPostingContext_(record, revisionHistory, approvedVideoUrl) {
   const caption = String(record.Caption || '');
   return {
     platforms: record['Platform(s)'] || '',
     postingDate: record['Posting Date'] || '',
     postingTime: record.Time || '',
-    finalApprovedVideoUrl: getApprovedVideoUrlForScheduling_(record),
+    finalApprovedVideoUrl: approvedVideoUrl || getApprovedVideoUrlForScheduling_(record, revisionHistory),
     captionPreview: caption.length > 90 ? `${caption.slice(0, 87)}...` : caption,
   };
 }
@@ -2366,6 +3136,57 @@ function parseTeamAssignment_(value) {
     .split(/\s*\+\s*|,\s*|\n+/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function handleMultiSelectValidationEdit_(e) {
+  if (!e || !e.range || e.value == null || e.range.getNumRows() !== 1 || e.range.getNumColumns() !== 1) {
+    return;
+  }
+
+  const sheet = e.range.getSheet();
+  const sheetName = sheet.getName();
+  const multiSelectHeaders = ['Subject', 'Moment / Action'];
+  let headerRow = 0;
+  let dataStart = 0;
+
+  if (sheetName === PHASE1.sheets.content) {
+    headerRow = PHASE1.rows.contentHeader;
+    dataStart = PHASE1.rows.contentDataStart;
+  } else if (sheetName === IDEA_BRAIN_DUMP.sheetName) {
+    headerRow = IDEA_BRAIN_DUMP.headerRow;
+    dataStart = IDEA_BRAIN_DUMP.dataStart;
+  } else {
+    return;
+  }
+
+  if (e.range.getRow() < dataStart) {
+    return;
+  }
+
+  const columnMap = getHeaderMap_(sheet, headerRow);
+  const editedHeader = multiSelectHeaders.find((header) => columnMap[header] === e.range.getColumn());
+  if (!editedHeader) {
+    return;
+  }
+
+  const selectedValue = String(e.value || '').trim();
+  const priorValues = splitMultiSelectCellValue_(e.oldValue || '');
+  if (priorValues.join(', ') === selectedValue) {
+    return;
+  }
+  const selectedIndex = priorValues.indexOf(selectedValue);
+  const nextValues = selectedIndex === -1
+    ? priorValues.concat([selectedValue])
+    : priorValues.filter((value) => value !== selectedValue);
+  e.range.setValue(nextValues.join(', '));
+}
+
+function splitMultiSelectCellValue_(value) {
+  return String(value || '')
+    .split(/\s*,\s*|\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item, index, list) => list.indexOf(item) === index);
 }
 
 function inferBrandFromContentId_(contentId) {
@@ -2618,8 +3439,8 @@ function applyIdeaBrainDumpValidations_(spreadsheet, sheet) {
   applyWarningValidationToColumnForStart_(sheet, columnMap['Content Pillar'], IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Content Pillars')));
   applyWarningValidationToColumnForStart_(sheet, columnMap.Format, IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Formats')));
   applyWarningValidationToColumnForStart_(sheet, columnMap.Goal, IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Goals')));
-  applyValidationToColumnForStart_(sheet, columnMap.Subject, IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Subjects')), true);
-  applyValidationToColumnForStart_(sheet, columnMap['Moment / Action'], IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Moment Actions')), true);
+  applyWarningValidationToColumnForStart_(sheet, columnMap.Subject, IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Subjects')));
+  applyWarningValidationToColumnForStart_(sheet, columnMap['Moment / Action'], IDEA_BRAIN_DUMP.dataStart, rowCount, spreadsheet.getRangeByName(configRangeName_('Moment Actions')));
   applyValidationToColumnForStart_(sheet, columnMap['Brand Manager Review Status'], IDEA_BRAIN_DUMP.dataStart, rowCount, ['Needs Review', 'Reviewed', 'Promoted', 'Backlog']);
   if (columnMap['Promote to 1A?']) {
     sheet.getRange(IDEA_BRAIN_DUMP.dataStart, columnMap['Promote to 1A?'], rowCount, 1).insertCheckboxes();
@@ -2632,12 +3453,9 @@ function isIdeaBrainDumpSchemaCurrent_(sheet) {
 }
 
 function writeIdeaBrainDumpValues_(sheet, row, columnMap, valuesByHeader) {
-  Object.keys(valuesByHeader).forEach((header) => {
-    if (columnMap[header]) {
-      const value = header === 'Promote to 1A?' ? normalizeCheckboxValue_(valuesByHeader[header]) : valuesByHeader[header];
-      sheet.getRange(row, columnMap[header]).setValue(value);
-    }
-  });
+  writeSparseRowValues_(sheet, row, columnMap, valuesByHeader, (header, value) => (
+    header === 'Promote to 1A?' ? normalizeCheckboxValue_(value) : value
+  ));
 }
 
 function normalizeCheckboxValue_(value) {
@@ -2681,6 +3499,16 @@ function findFirstBlankRowByColumn_(sheet, column, firstRow) {
 function getConfigListValues_(spreadsheet, title) {
   const values = getNamedRangeValues_(spreadsheet, configRangeName_(title));
   return values.length ? values : PHASE1.configLists[title] || [];
+}
+
+function getWorkflowSettingsValuesMap_(spreadsheet) {
+  const sheet = requireSheet_(spreadsheet, PHASE1.sheets.settings);
+  return getExistingWorkflowSettingsValues_(sheet);
+}
+
+function getConfigListValuesFromMap_(spreadsheet, valuesByTitle, title) {
+  const values = valuesByTitle && valuesByTitle[title] ? valuesByTitle[title] : [];
+  return values.length ? values : getConfigListValues_(spreadsheet, title);
 }
 
 function replaceLegacyTeamNamesInList_(values) {
@@ -2775,6 +3603,10 @@ function selectField_(name, label, optionsKey, required) {
   return { name, label, type: 'select', optionsKey, required: Boolean(required) };
 }
 
+function multiSelectField_(name, label, optionsKey, required) {
+  return { name, label, type: 'multiSelect', optionsKey, required: Boolean(required) };
+}
+
 function checkboxField_(name, label, required) {
   return { name, label, type: 'checkbox', required: Boolean(required) };
 }
@@ -2845,11 +3677,14 @@ function getExistingWorkflowSettingsValues_(sheet) {
   const headerRow = titleCell.getRow() + 1;
   const firstColumn = titleCell.getColumn();
   const width = Math.max(sheet.getLastColumn() - firstColumn + 1, 1);
-  const headers = sheet.getRange(headerRow, firstColumn, 1, width).getDisplayValues()[0];
+  const rowCount = Math.max(sheet.getLastRow() - headerRow + 1, 1);
+  const values = sheet.getRange(headerRow, firstColumn, rowCount, width).getDisplayValues();
+  const headers = values[0] || [];
+  const bodyRows = values.slice(1);
   return headers.reduce((map, title, index) => {
     const cleanTitle = String(title || '').trim();
     if (cleanTitle) {
-      map[cleanTitle] = getWorkflowConfigColumnValues_(sheet, headerRow + 1, firstColumn + index);
+      map[cleanTitle] = uniqueNonEmpty_(bodyRows.map((row) => row[index]));
     }
     return map;
   }, {});
@@ -3442,31 +4277,117 @@ function getCalendarEventsByDate_(spreadsheet, columnMap, config) {
   }
 
   const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
-  const range = contentSheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, contentSheet.getLastColumn());
-  const values = range.getValues();
-  const displayValues = range.getDisplayValues();
-  values
-    .map((row, index) => {
-      const record = rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index);
-      applyCalendarDisplayFields_(record, displayValues[index], columnMap);
-      return record;
-    })
-    .forEach((record) => {
-      const date = parseSheetDate_(record[config.dateHeader]);
-      if (!record.contentId || !date) {
-        return;
-      }
-      const key = calendarDateKey_(date);
-      if (!eventsByDate[key]) {
-        eventsByDate[key] = [];
-      }
-      eventsByDate[key].push(buildCalendarEventText_(record, config.eventType));
-    });
+  const records = buildCalendarEventRecords_(contentSheet, columnMap, rowCount, config);
+  records.forEach((record) => {
+    const date = parseSheetDate_(record[config.dateHeader]);
+    if (!record.contentId || !date) {
+      return;
+    }
+    const key = calendarDateKey_(date);
+    if (!eventsByDate[key]) {
+      eventsByDate[key] = [];
+    }
+    eventsByDate[key].push(buildCalendarEventText_(record, config.eventType));
+  });
 
   Object.keys(eventsByDate).forEach((key) => {
     eventsByDate[key].sort();
   });
   return eventsByDate;
+}
+
+function buildCalendarEventRecords_(sheet, columnMap, rowCount, config) {
+  const headers = getCalendarEventHeaders_(config);
+  const dateHeader = config.dateHeader;
+  const displayHeaders = headers.filter((header) => header !== dateHeader);
+  const displayValuesByHeader = readSparseColumnValues_(sheet, columnMap, displayHeaders, rowCount, 'display');
+  const dateValuesByHeader = readSparseColumnValues_(sheet, columnMap, [dateHeader], rowCount, 'value');
+  const records = [];
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const record = {
+      row: PHASE1.rows.contentDataStart + index,
+    };
+    displayHeaders.forEach((header) => {
+      record[header] = (displayValuesByHeader[header] || [])[index] || '';
+    });
+    record[dateHeader] = (dateValuesByHeader[dateHeader] || [])[index] || '';
+    record.contentId = record[PHASE1.coreHeaders.contentId] || '';
+    record.status = record[PHASE1.coreHeaders.status] || '';
+    record.idea = record.Idea || '';
+    records.push(record);
+  }
+
+  return records;
+}
+
+function getCalendarEventHeaders_(config) {
+  const headers = [
+    PHASE1.coreHeaders.contentId,
+    PHASE1.coreHeaders.status,
+    'Brand',
+    'Idea',
+    config.dateHeader,
+  ];
+  if (config.eventType === 'posting') {
+    headers.push('Time', 'Platform(s)');
+  } else {
+    headers.push('Assigned Filmer(s)');
+  }
+  return uniqueNonEmpty_(headers);
+}
+
+function readSparseColumnValues_(sheet, columnMap, headers, rowCount, mode) {
+  const valuesByHeader = {};
+  const entries = uniqueNonEmpty_(headers)
+    .filter((header) => columnMap[header])
+    .map((header) => ({
+      header,
+      column: columnMap[header],
+    }))
+    .sort((a, b) => a.column - b.column);
+
+  let groupStartColumn = 0;
+  let groupEntries = [];
+  let previousColumn = 0;
+
+  const flush = () => {
+    if (!groupEntries.length) {
+      return;
+    }
+
+    const range = sheet.getRange(PHASE1.rows.contentDataStart, groupStartColumn, rowCount, groupEntries.length);
+    const values = mode === 'value' ? range.getValues() : range.getDisplayValues();
+    groupEntries.forEach((entry, offset) => {
+      valuesByHeader[entry.header] = values.map((row) => row[offset]);
+    });
+    groupStartColumn = 0;
+    groupEntries = [];
+    previousColumn = 0;
+  };
+
+  entries.forEach((entry) => {
+    if (!groupEntries.length) {
+      groupStartColumn = entry.column;
+      groupEntries.push(entry);
+      previousColumn = entry.column;
+      return;
+    }
+
+    if (entry.column === previousColumn + 1) {
+      groupEntries.push(entry);
+      previousColumn = entry.column;
+      return;
+    }
+
+    flush();
+    groupStartColumn = entry.column;
+    groupEntries.push(entry);
+    previousColumn = entry.column;
+  });
+
+  flush();
+  return valuesByHeader;
 }
 
 function applyCalendarDisplayFields_(record, displayRow, columnMap) {
@@ -3666,8 +4587,8 @@ function applyWorkflowValidations_(spreadsheet, columnMap, configRanges) {
   applyValidationToColumn_(sheet, columnMap.Brand, validationRowCount, configRanges.Brands);
   applyValidationToColumn_(sheet, columnMap['Dual Brand Set'], validationRowCount, configRanges['Dual Brand Sets']);
   applyValidationToColumn_(sheet, columnMap['Original / Companion'], validationRowCount, configRanges['Original / Companion']);
-  applyValidationToColumn_(sheet, columnMap.Subject, validationRowCount, configRanges.Subjects);
-  applyValidationToColumn_(sheet, columnMap['Moment / Action'], validationRowCount, configRanges['Moment Actions']);
+  applyWarningValidationToColumn_(sheet, columnMap.Subject, validationRowCount, configRanges.Subjects);
+  applyWarningValidationToColumn_(sheet, columnMap['Moment / Action'], validationRowCount, configRanges['Moment Actions']);
   applyValidationToColumn_(sheet, columnMap['Spacing Status'], validationRowCount, configRanges['Spacing Statuses']);
   applyValidationToColumn_(sheet, columnMap.Priority, validationRowCount, configRanges.Priorities);
   applyValidationToColumn_(sheet, columnMap['Platform(s)'], validationRowCount, configRanges.Platforms);
@@ -3819,9 +4740,10 @@ function appendRows_(sheet, rows) {
     return;
   }
 
-  ensureRows_(sheet, sheet.getLastRow() + rows.length);
+  const startRow = sheet.getLastRow() + 1;
+  ensureRows_(sheet, startRow + rows.length - 1);
   ensureColumns_(sheet, rows[0].length);
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  sheet.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
 }
 
 function ensureColumns_(sheet, requiredLastColumn) {
