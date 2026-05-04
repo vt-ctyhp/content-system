@@ -649,6 +649,7 @@
 
     <script>
       const STORAGE_KEY = 'contentWorkflowDashboardSession';
+      const AUTO_REFRESH_MS = 180000;
       const state = {
         loginModel: null,
         session: null,
@@ -657,6 +658,7 @@
         taskMode: 'focus',
         modalModel: null,
         calendarStart: '',
+        autoRefreshTimer: null,
       };
 
       function callServer(name, ...args) {
@@ -734,9 +736,12 @@
         return Boolean(model.profiles.filter((profile) => profile.id === session.profileId).length);
       }
 
-      function loadDashboard() {
-        setLoginStatus('Loading dashboard...');
-        setAppStatus('Loading...');
+      function loadDashboard(options) {
+        const settings = options || {};
+        if (!settings.silent) {
+          setLoginStatus('Loading dashboard...');
+          setAppStatus('Loading...');
+        }
         return callServer('getDashboardInitialModel', state.session)
           .then((model) => {
             state.model = model;
@@ -749,17 +754,41 @@
             document.getElementById('dashboard').style.display = 'block';
             renderDashboard(model);
             setLoginStatus('');
-            setAppStatus('');
+            setAppStatus(settings.silent ? `Updated ${getCurrentTimeLabel()}` : '');
             openTab(state.activeTab || 'tasks');
+            scheduleAutoRefresh();
           })
           .catch((error) => {
             setLoginStatus(getErrorMessage(error), true);
             setAppStatus(getErrorMessage(error), true);
+            scheduleAutoRefresh();
           });
       }
 
       function refreshDashboard() {
         loadDashboard();
+      }
+
+      function scheduleAutoRefresh() {
+        if (state.autoRefreshTimer) {
+          window.clearTimeout(state.autoRefreshTimer);
+        }
+        state.autoRefreshTimer = window.setTimeout(autoRefreshDashboard, AUTO_REFRESH_MS);
+      }
+
+      function autoRefreshDashboard() {
+        const dashboardVisible = document.getElementById('dashboard').style.display === 'block';
+        const modalOpen = document.getElementById('overlay').style.display === 'flex';
+        if (!state.session || !dashboardVisible || document.hidden || modalOpen) {
+          scheduleAutoRefresh();
+          return;
+        }
+        loadDashboard({ silent: true });
+      }
+
+      function getCurrentTimeLabel() {
+        const now = new Date();
+        return now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       }
 
       function renderDashboard(model) {
@@ -1231,6 +1260,12 @@
       document.getElementById('modal-form').addEventListener('submit', handleModalSubmit);
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') closeModal();
+      });
+      document.addEventListener('visibilitychange', () => {
+        const dashboardVisible = document.getElementById('dashboard').style.display === 'block';
+        if (!document.hidden && state.session && dashboardVisible) {
+          loadDashboard({ silent: true });
+        }
       });
       init();
     </script>

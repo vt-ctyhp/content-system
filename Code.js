@@ -340,9 +340,13 @@ const WORKFLOW_RUNTIME_CACHE_KEYS = {
   workflowOptions: 'CO_WORKFLOW_OPTIONS_V1',
 };
 const TASK_QUEUE_SELECTIVE_READ_MAX_ROWS = 25;
+const TASK_QUEUE_DETAIL_READ_MAX_GROUPS = 4;
+const TASK_QUEUE_DETAIL_SPAN_READ_MAX_ROWS = 80;
 const DASHBOARD_TASK_LIMIT = 100;
 const DASHBOARD_IDEA_LIMIT = 75;
 const DASHBOARD_CALENDAR_DAY_COUNT = 35;
+const DASHBOARD_CALENDAR_DETAIL_READ_MAX_GROUPS = 4;
+const DASHBOARD_CALENDAR_DETAIL_SPAN_READ_MAX_ROWS = 80;
 const DASHBOARD_KANBAN_CARD_LIMIT_PER_STATUS = 30;
 const DASHBOARD_UNIVERSAL_ACTIONS = ['addIdea', 'promoteIdea'];
 const DASHBOARD_ACCESS_PROFILES = [
@@ -472,6 +476,7 @@ const PERFORMANCE_TIMED_FUNCTION_NAMES = [
   'colLetter',
   'colStart',
   'configRangeName_',
+  'countTaskQueueCandidateRowGroups_',
   'dateField_',
   'doGet',
   'ensureActivityLog_',
@@ -504,6 +509,7 @@ const PERFORMANCE_TIMED_FUNCTION_NAMES = [
   'getDashboardActionModel',
   'getDashboardActiveTasks_',
   'getDashboardCalendar',
+  'getDashboardCalendarRecordsForWindow_',
   'getDashboardInitialModel',
   'getDashboardIdeas',
   'getDashboardKanban',
@@ -601,14 +607,19 @@ const PERFORMANCE_TIMED_FUNCTION_NAMES = [
   'openSubmitEditedVersionDialog',
   'openSubmitRawFootageDialog',
   'openWorkflowDialogForTask',
+  'parseDashboardDateInput_',
+  'parseLocalDateString_',
   'parseSelectedPlatforms_',
   'parseSheetDate_',
   'parseTeamAssignment_',
   'promoteIdeaToPlanning_',
   'readIdeaBrainDumpRecords_',
+  'readDashboardCalendarCandidateRecords_',
+  'readDashboardCalendarSpanRecords_',
   'readTaskQueueCandidateRecords_',
   'readTaskQueueDetailRecords_',
   'readTaskQueueFullRecords_',
+  'readTaskQueueSpanRecords_',
   'rebuildCalendarViewTab_',
   'rebuildCalendarViewsSilently_',
   'rebuildContentPlanningSchema_',
@@ -814,11 +825,14 @@ function runPerformanceBenchmarkSuite_(config) {
         ['getTaskQueue:Brand Manager', () => benchmarkTaskQueueForUser_('Brand Manager')],
         ['getTaskQueue:Estefanie', () => benchmarkTaskQueueForUser_('Estefanie')],
         ['getTaskQueue:Admin', () => benchmarkTaskQueueForUser_('Admin')],
+        ['getDashboardInitial:Brand Manager', () => benchmarkDashboardInitial_('brandManager', 'Brand Manager')],
+        ['getDashboardInitial:Editor', () => benchmarkDashboardInitial_('editor', 'Estefanie')],
         ['getWorkflowDialogModel:addIdea', () => benchmarkWorkflowDialogModelReadOnly_('addIdea')],
         ['getWorkflowDialogModel:promoteIdea', () => benchmarkWorkflowDialogModelReadOnly_('promoteIdea')],
         ['getWorkflowDialogModel:scheduleContent', () => benchmarkWorkflowDialogModelReadOnly_('scheduleContent')],
         ['getCalendarEvents:filming', () => benchmarkCalendarEvents_('Filming Date', 'filming')],
         ['getCalendarEvents:posting', () => benchmarkCalendarEvents_('Posting Date', 'posting')],
+        ['getDashboardCalendar:posting', () => benchmarkDashboardCalendar_('posting')],
       ];
       if (config.includeQa !== false) {
         operations.splice(8, 0, ['buildWorkflowQaRows', () => benchmarkWorkflowQaRows_()]);
@@ -945,6 +959,7 @@ function benchmarkTaskQueueForUser_(userName) {
     columns: context.taskQueueLastColumn,
     mode: context.taskQueueReadMode || '',
     candidates: context.taskQueueCandidateCount || '',
+    candidateGroups: context.taskQueueCandidateGroupCount || '',
   }));
   const revisionHistoryMap = timer.step('revisionHistoryRead', () => getRevisionHistoryMap_(spreadsheet), (result) => ({
     contentIds: Object.keys(result).length,
@@ -986,6 +1001,48 @@ function benchmarkWorkflowDialogModelReadOnly_(action) {
     fields: config.fields.length,
     optionLists: Object.keys(options).length,
     defaultKeys: Object.keys(defaults).length,
+  };
+}
+
+function benchmarkDashboardInitial_(profileId, userName) {
+  const operation = `getDashboardInitial:${userName}`;
+  const timer = createBenchmarkTimer_(operation);
+  const model = timer.step('dashboardInitial', () => getDashboardInitialModel({
+    profileId,
+    userName,
+  }), (result) => ({
+    focusedTasks: result.focusTasks.length,
+    totalTasks: result.summary.total,
+    globalActions: result.globalActions.length,
+  }));
+  timer.finish();
+  return {
+    profile: model.profile.label,
+    userName: model.profile.userName,
+    focusedTasks: model.focusTasks.length,
+    totalTasks: model.summary.total,
+  };
+}
+
+function benchmarkDashboardCalendar_(type) {
+  const operation = `getDashboardCalendar:${type}`;
+  const timer = createBenchmarkTimer_(operation);
+  const payload = timer.step('dashboardCalendar', () => getDashboardCalendar({
+    profileId: 'brandManager',
+    userName: 'Brand Manager',
+  }, {
+    type,
+  }), (result) => ({
+    days: result.days.length,
+    dates: Object.keys(result.eventsByDate).length,
+    events: Object.keys(result.eventsByDate).reduce((count, key) => count + result.eventsByDate[key].length, 0),
+  }));
+  timer.finish();
+  return {
+    type: payload.type,
+    days: payload.days.length,
+    dates: Object.keys(payload.eventsByDate).length,
+    events: Object.keys(payload.eventsByDate).reduce((count, key) => count + payload.eventsByDate[key].length, 0),
   };
 }
 
@@ -1608,6 +1665,7 @@ function buildTaskQueueRecords_(context, userName) {
 
   const candidates = readTaskQueueCandidateRecords_(context, normalizedUser);
   context.taskQueueCandidateCount = candidates.length;
+  context.taskQueueCandidateGroupCount = countTaskQueueCandidateRowGroups_(candidates);
   if (candidates.length > TASK_QUEUE_SELECTIVE_READ_MAX_ROWS) {
     context.taskQueueReadMode = 'full-after-filter';
     return readTaskQueueFullRecords_(context, normalizedUser);
@@ -1630,6 +1688,19 @@ function readTaskQueueCandidateRecords_(context, userName) {
     .filter((record) => taskBelongsInQueue_(record, userName));
 }
 
+function countTaskQueueCandidateRowGroups_(candidates) {
+  if (!candidates.length) {
+    return 0;
+  }
+
+  return candidates.reduce((count, candidate, index) => {
+    if (index === 0) {
+      return 1;
+    }
+    return candidate.row === candidates[index - 1].row + 1 ? count : count + 1;
+  }, 0);
+}
+
 function readTaskQueueFullRecords_(context, userName) {
   if (!context.rowCount) {
     return [];
@@ -1646,6 +1717,13 @@ function readTaskQueueFullRecords_(context, userName) {
 function readTaskQueueDetailRecords_(context, candidates) {
   if (!candidates.length) {
     return [];
+  }
+
+  const rowSpan = candidates[candidates.length - 1].row - candidates[0].row + 1;
+  const groupCount = countTaskQueueCandidateRowGroups_(candidates);
+  if (groupCount > TASK_QUEUE_DETAIL_READ_MAX_GROUPS && rowSpan <= TASK_QUEUE_DETAIL_SPAN_READ_MAX_ROWS) {
+    context.taskQueueReadMode = 'selective-span';
+    return readTaskQueueSpanRecords_(context, candidates);
   }
 
   const records = [];
@@ -1690,6 +1768,21 @@ function readTaskQueueDetailRecords_(context, candidates) {
 
   flush();
   return records;
+}
+
+function readTaskQueueSpanRecords_(context, candidates) {
+  const firstRow = candidates[0].row;
+  const lastRow = candidates[candidates.length - 1].row;
+  const wantedRows = candidates.reduce((map, candidate) => {
+    map[candidate.row] = true;
+    return map;
+  }, {});
+
+  return context.sheet
+    .getRange(firstRow, 1, lastRow - firstRow + 1, context.taskQueueLastColumn)
+    .getDisplayValues()
+    .map((row, index) => rowToContentRecord_(row, context.columnMap, firstRow + index))
+    .filter((record) => wantedRows[record.row]);
 }
 
 function getTaskQueue(userName) {
@@ -1854,22 +1947,20 @@ function getDashboardCalendar(session, params) {
     }, {});
     const eventsByDate = {};
 
-    if (context.rowCount) {
-      buildCalendarEventRecords_(context.sheet, context.columnMap, context.rowCount, {
-        dateHeader,
-        eventType: type,
-      }).forEach((record) => {
-        const date = parseSheetDate_(record[dateHeader]);
-        const key = date ? calendarDateKey_(date) : '';
-        if (!record.contentId || !dayKeys[key]) {
-          return;
-        }
-        if (!eventsByDate[key]) {
-          eventsByDate[key] = [];
-        }
-        eventsByDate[key].push(buildDashboardCalendarEvent_(record, type, key, profile));
-      });
-    }
+    getDashboardCalendarRecordsForWindow_(context, {
+      dateHeader,
+      eventType: type,
+    }, dayKeys).forEach((record) => {
+      const date = parseSheetDate_(record[dateHeader]);
+      const key = date ? calendarDateKey_(date) : '';
+      if (!record.contentId || !dayKeys[key]) {
+        return;
+      }
+      if (!eventsByDate[key]) {
+        eventsByDate[key] = [];
+      }
+      eventsByDate[key].push(buildDashboardCalendarEvent_(record, type, key, profile));
+    });
 
     Object.keys(eventsByDate).forEach((key) => {
       eventsByDate[key].sort((a, b) => String(a.sortText).localeCompare(String(b.sortText)));
@@ -2132,12 +2223,134 @@ function getDashboardCalendarDays_(startDate) {
   });
 }
 
-function parseDashboardDateInput_(value) {
-  const text = String(value || '').trim();
-  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match) {
-    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+function getDashboardCalendarRecordsForWindow_(context, config, dayKeys) {
+  if (!context.rowCount) {
+    return [];
   }
+
+  const dateColumn = context.columnMap[config.dateHeader];
+  if (!dateColumn) {
+    return [];
+  }
+
+  const values = context.sheet
+    .getRange(PHASE1.rows.contentDataStart, dateColumn, context.rowCount, 1)
+    .getDisplayValues();
+  const candidates = values
+    .map((row, index) => ({
+      row: PHASE1.rows.contentDataStart + index,
+      key: calendarDateKey_(row[0]),
+    }))
+    .filter((candidate) => candidate.key && dayKeys[candidate.key]);
+
+  return readDashboardCalendarCandidateRecords_(context, candidates, config);
+}
+
+function readDashboardCalendarCandidateRecords_(context, candidates, config) {
+  if (!candidates.length) {
+    return [];
+  }
+
+  const entries = getCalendarEventHeaders_(config)
+    .filter((header) => context.columnMap[header])
+    .map((header) => ({
+      header,
+      column: context.columnMap[header],
+    }))
+    .sort((a, b) => a.column - b.column);
+  if (!entries.length) {
+    return [];
+  }
+
+  const firstColumn = entries[0].column;
+  const lastColumn = entries[entries.length - 1].column;
+  const rowSpan = candidates[candidates.length - 1].row - candidates[0].row + 1;
+  const groupCount = countTaskQueueCandidateRowGroups_(candidates);
+  if (
+    groupCount > DASHBOARD_CALENDAR_DETAIL_READ_MAX_GROUPS
+    && rowSpan <= DASHBOARD_CALENDAR_DETAIL_SPAN_READ_MAX_ROWS
+  ) {
+    return readDashboardCalendarSpanRecords_(context, candidates, entries, firstColumn, lastColumn);
+  }
+
+  const records = [];
+  let groupStartRow = 0;
+  let groupRows = [];
+  let previousRow = 0;
+
+  const flush = () => {
+    if (!groupRows.length) {
+      return;
+    }
+
+    context.sheet
+      .getRange(groupStartRow, firstColumn, groupRows.length, lastColumn - firstColumn + 1)
+      .getDisplayValues()
+      .forEach((row, rowIndex) => {
+        const record = { row: groupStartRow + rowIndex };
+        entries.forEach((entry) => {
+          record[entry.header] = row[entry.column - firstColumn] || '';
+        });
+        record.contentId = record[PHASE1.coreHeaders.contentId] || '';
+        record.status = record[PHASE1.coreHeaders.status] || '';
+        record.idea = record.Idea || '';
+        records.push(record);
+      });
+
+    groupStartRow = 0;
+    groupRows = [];
+    previousRow = 0;
+  };
+
+  candidates.forEach((candidate) => {
+    if (!groupRows.length) {
+      groupStartRow = candidate.row;
+      previousRow = candidate.row;
+      groupRows.push(candidate.row);
+      return;
+    }
+
+    if (candidate.row === previousRow + 1) {
+      previousRow = candidate.row;
+      groupRows.push(candidate.row);
+      return;
+    }
+
+    flush();
+    groupStartRow = candidate.row;
+    previousRow = candidate.row;
+    groupRows.push(candidate.row);
+  });
+
+  flush();
+  return records;
+}
+
+function readDashboardCalendarSpanRecords_(context, candidates, entries, firstColumn, lastColumn) {
+  const firstRow = candidates[0].row;
+  const lastRow = candidates[candidates.length - 1].row;
+  const wantedRows = candidates.reduce((map, candidate) => {
+    map[candidate.row] = true;
+    return map;
+  }, {});
+
+  return context.sheet
+    .getRange(firstRow, firstColumn, lastRow - firstRow + 1, lastColumn - firstColumn + 1)
+    .getDisplayValues()
+    .map((row, index) => {
+      const record = { row: firstRow + index };
+      entries.forEach((entry) => {
+        record[entry.header] = row[entry.column - firstColumn] || '';
+      });
+      record.contentId = record[PHASE1.coreHeaders.contentId] || '';
+      record.status = record[PHASE1.coreHeaders.status] || '';
+      record.idea = record.Idea || '';
+      return record;
+    })
+    .filter((record) => wantedRows[record.row]);
+}
+
+function parseDashboardDateInput_(value) {
   return parseSheetDate_(value);
 }
 
@@ -2660,11 +2873,32 @@ function parseSheetDate_(dateValue) {
     return new Date(dateValue.getTime());
   }
 
+  const localDate = parseLocalDateString_(dateValue);
+  if (localDate) {
+    return localDate;
+  }
+
   const parsedDate = new Date(dateValue);
   if (Number.isNaN(parsedDate.getTime())) {
     return null;
   }
   return parsedDate;
+}
+
+function parseLocalDateString_(value) {
+  const text = String(value || '').trim();
+  let match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+
+  match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (match) {
+    const year = Number(match[3].length === 2 ? `20${match[3]}` : match[3]);
+    return new Date(year, Number(match[1]) - 1, Number(match[2]));
+  }
+
+  return null;
 }
 
 function getWorkflowActionConfig_(action) {
@@ -3922,6 +4156,10 @@ function cellHasCheckbox_(cell) {
 }
 
 function normalizeDateForSheet_(value) {
+  const localDate = parseLocalDateString_(value);
+  if (localDate) {
+    return localDate;
+  }
   return value || '';
 }
 
