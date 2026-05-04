@@ -334,10 +334,70 @@ const PERFORMANCE_TIMING_PROPERTY_KEYS = {
   detailed: 'PERF_TIMING_DETAILED',
   runLabel: 'PERF_TIMING_RUN_LABEL',
 };
+const WORKFLOW_RUNTIME_CACHE_TTL_SECONDS = 1800;
+const WORKFLOW_RUNTIME_CACHE_KEYS = {
+  contentHeaderMap: 'CO_CONTENT_HEADER_MAP_V1',
+  workflowOptions: 'CO_WORKFLOW_OPTIONS_V1',
+};
+const TASK_QUEUE_SELECTIVE_READ_MAX_ROWS = 25;
+const DASHBOARD_TASK_LIMIT = 100;
+const DASHBOARD_IDEA_LIMIT = 75;
+const DASHBOARD_CALENDAR_DAY_COUNT = 35;
+const DASHBOARD_KANBAN_CARD_LIMIT_PER_STATUS = 30;
+const DASHBOARD_UNIVERSAL_ACTIONS = ['addIdea', 'promoteIdea'];
+const DASHBOARD_ACCESS_PROFILES = [
+  {
+    id: 'editor',
+    label: 'Editor',
+    defaultUser: 'Estefanie',
+    userNames: ['Estefanie'],
+    focusUser: 'Estefanie',
+    focusLabel: 'Editing, revisions, scheduling, and posting',
+    allowedActions: DASHBOARD_UNIVERSAL_ACTIONS.concat(['startEditing', 'submitEditedVersion', 'scheduleContent', 'markPosted']),
+  },
+  {
+    id: 'marketingIntern',
+    label: 'Marketing Intern',
+    defaultUser: 'Hillary',
+    userNames: ['Hillary', 'Thao'],
+    focusUser: '',
+    focusLabel: 'Assigned filming tasks',
+    allowedActions: DASHBOARD_UNIVERSAL_ACTIONS.concat(['submitRawFootage']),
+  },
+  {
+    id: 'brandManager',
+    label: 'Brand Manager',
+    defaultUser: 'Brand Manager',
+    userNames: ['Brand Manager'],
+    focusUser: 'Brand Manager',
+    focusLabel: 'Planning, review, approval, and scheduling fallback',
+    allowedActions: DASHBOARD_UNIVERSAL_ACTIONS.concat(['assignFilming', 'reviewApprove', 'scheduleContent']),
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    defaultUser: 'Admin',
+    userNames: ['Admin', 'Vivianne'],
+    focusUser: 'Admin',
+    focusLabel: 'All active work, blocked items, and overrides',
+    allowedActions: DASHBOARD_UNIVERSAL_ACTIONS.concat([
+      'assignFilming',
+      'submitRawFootage',
+      'startEditing',
+      'submitEditedVersion',
+      'reviewApprove',
+      'scheduleContent',
+      'markPosted',
+      'adminOverride',
+    ]),
+  },
+];
 let PERFORMANCE_TIMING_SETTINGS_ = null;
 let PERFORMANCE_TIMING_RUN_ID_ = '';
 let PERFORMANCE_TIMING_DEPTH_ = 0;
 let PERFORMANCE_TIMING_WRAPPERS_INSTALLED_ = false;
+let CONTENT_HEADER_CONTEXT_MEMORY_CACHE_ = null;
+let WORKFLOW_OPTIONS_MEMORY_CACHE_ = null;
 const PERFORMANCE_TIMING_WRAPPED_MARKER_ = '__perfTimingWrapped';
 
 const PERFORMANCE_TIMED_FUNCTION_NAMES = [
@@ -390,19 +450,30 @@ const PERFORMANCE_TIMED_FUNCTION_NAMES = [
   'buildIdeaBrainDumpMasthead_',
   'buildPromotedContentValues_',
   'buildRevisionLogRow_',
+  'buildDashboardActionModel_',
+  'buildDashboardCalendarEvent_',
+  'buildDashboardGlobalActions_',
+  'buildDashboardKanbanColumns_',
+  'buildDashboardTaskCard_',
   'buildTaskQueuePayload_',
+  'buildTaskQueueRecords_',
+  'getTaskQueueReadLastColumn_',
+  'getTaskQueueFilterLastColumn_',
   'buildTaskQueueSummary_',
   'buildWorkflowContextLines_',
   'buildWorkflowDefaults_',
+  'buildWorkflowOptions_',
   'buildWorkflowQaRows_',
   'calendarDateKey_',
   'cellHasCheckbox_',
   'checkboxField_',
   'clearWorkflowQaReport_',
+  'clearWorkflowRuntimeCache_',
   'colLetter',
   'colStart',
   'configRangeName_',
   'dateField_',
+  'doGet',
   'ensureActivityLog_',
   'ensureColumns_',
   'ensureIdeaBrainDumpColumns_',
@@ -425,9 +496,20 @@ const PERFORMANCE_TIMED_FUNCTION_NAMES = [
   'getCalendarEventHeaders_',
   'getCalendarEventsByDate_',
   'getConfigListValues_',
+  'getContentHeaderContextFromCache_',
   'getContentPlanningHeaders_',
+  'getContentPlanningReadContext_',
   'getContentRecordById_',
   'getCurrentEditVersion_',
+  'getDashboardActionModel',
+  'getDashboardActiveTasks_',
+  'getDashboardCalendar',
+  'getDashboardInitialModel',
+  'getDashboardIdeas',
+  'getDashboardKanban',
+  'getDashboardLoginModel',
+  'getDashboardProfile_',
+  'getDashboardTasks',
   'getEffectiveUserEmail_',
   'getExistingContentHeaderRow_',
   'getExistingWorkflowSettingsValues_',
@@ -469,6 +551,7 @@ const PERFORMANCE_TIMED_FUNCTION_NAMES = [
   'getWorkflowActionConfig_',
   'getWorkflowActionDisplay_',
   'getWorkflowConfigColumnValues_',
+  'getWorkflowOptionsFromCache_',
   'getWorkflowOptions_',
   'getWorkflowQaIssuesForRecord_',
   'groupDualBrandFilmingTasks_',
@@ -523,7 +606,9 @@ const PERFORMANCE_TIMED_FUNCTION_NAMES = [
   'parseTeamAssignment_',
   'promoteIdeaToPlanning_',
   'readIdeaBrainDumpRecords_',
-  'readSparseColumnValues_',
+  'readTaskQueueCandidateRecords_',
+  'readTaskQueueDetailRecords_',
+  'readTaskQueueFullRecords_',
   'rebuildCalendarViewTab_',
   'rebuildCalendarViewsSilently_',
   'rebuildContentPlanningSchema_',
@@ -549,6 +634,8 @@ const PERFORMANCE_TIMED_FUNCTION_NAMES = [
   'sanitizePayload_',
   'scheduleContent_',
   'selectField_',
+  'setWorkflowOptionsCache_',
+  'setContentHeaderContextCache_',
   'showWorkflowDialog_',
   'splitMultiSelectCellValue_',
   'standardizeExistingStatuses_',
@@ -846,37 +933,24 @@ function benchmarkTaskQueueForUser_(userName) {
   const operation = `getTaskQueue:${userName}`;
   const timer = createBenchmarkTimer_(operation);
   const spreadsheet = timer.step('spreadsheet', () => SpreadsheetApp.getActive());
-  const context = timer.step('contentContext', () => {
-    const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
-    const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
-    const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
-    const lastDataRow = getLastContentDataRow_(sheet, contentIdColumn);
-    const rowCount = Math.max(lastDataRow - PHASE1.rows.contentDataStart + 1, 0);
-    return {
-      sheet,
-      columnMap,
-      lastDataRow,
-      rowCount,
-      lastColumn: sheet.getLastColumn(),
-    };
-  }, (result) => ({
+  const context = timer.step('contentContext', () => getContentPlanningReadContext_(spreadsheet), (result) => ({
     rows: result.rowCount,
     columns: result.lastColumn,
+    taskQueueColumns: result.taskQueueLastColumn,
   }));
-  const values = context.rowCount
-    ? timer.step('contentRowsRead', () => (
-      context.sheet.getRange(PHASE1.rows.contentDataStart, 1, context.rowCount, context.lastColumn).getDisplayValues()
-    ), { rows: context.rowCount, columns: context.lastColumn })
-    : [];
+  const normalizedUser = String(userName || '').trim();
+  const records = timer.step('contentRowsRead', () => buildTaskQueueRecords_(context, normalizedUser), (result) => ({
+    records: result.length,
+    rows: context.rowCount,
+    columns: context.taskQueueLastColumn,
+    mode: context.taskQueueReadMode || '',
+    candidates: context.taskQueueCandidateCount || '',
+  }));
   const revisionHistoryMap = timer.step('revisionHistoryRead', () => getRevisionHistoryMap_(spreadsheet), (result) => ({
     contentIds: Object.keys(result).length,
   }));
   const payload = timer.step('taskPayloadBuild', () => {
-    const normalizedUser = String(userName || '').trim();
-    const tasks = values
-      .map((row, index) => rowToContentRecord_(row, context.columnMap, PHASE1.rows.contentDataStart + index))
-      .filter((record) => record.contentId && record.status !== 'Posted')
-      .filter((record) => taskBelongsInQueue_(record, normalizedUser))
+    const tasks = records
       .map((record) => hydrateTaskQueueRecord_(record, revisionHistoryMap, normalizedUser));
     return buildTaskQueuePayload_(groupDualBrandFilmingTasks_(tasks, normalizedUser).slice(0, 100), normalizedUser);
   }, (result) => ({
@@ -931,10 +1005,10 @@ function benchmarkCalendarEvents_(dateHeader, eventType) {
   const operation = `getCalendarEvents:${eventType}`;
   const timer = createBenchmarkTimer_(operation);
   const spreadsheet = timer.step('spreadsheet', () => SpreadsheetApp.getActive());
-  const columnMap = timer.step('columnMap', () => getHeaderMap_(requireSheet_(spreadsheet, PHASE1.sheets.content), PHASE1.rows.contentHeader), (result) => ({
-    columns: Object.keys(result).length,
+  const context = timer.step('columnMap', () => getContentPlanningReadContext_(spreadsheet), (result) => ({
+    columns: Object.keys(result.columnMap).length,
   }));
-  const eventsByDate = timer.step('eventsByDate', () => getCalendarEventsByDate_(spreadsheet, columnMap, {
+  const eventsByDate = timer.step('eventsByDate', () => getCalendarEventsByDate_(spreadsheet, context.columnMap, {
     dateHeader,
     eventType,
   }), (result) => ({
@@ -1123,6 +1197,7 @@ const IDEA_BRAIN_DUMP = {
 
 function setupPhase1DatabaseFoundation() {
   return withTiming_('setupPhase1DatabaseFoundation', () => {
+    clearWorkflowRuntimeCache_();
     const spreadsheet = SpreadsheetApp.getActive();
     const activityLog = ensureActivityLog_(spreadsheet);
     const revisionLog = ensureRevisionLog_(spreadsheet);
@@ -1137,6 +1212,7 @@ function setupPhase1DatabaseFoundation() {
       buildWorkflowInstructionsTab();
     }
     flagCredentialSecurityCleanup_(spreadsheet, activityLog);
+    clearWorkflowRuntimeCache_();
 
     spreadsheet.toast(
       `Phase 1 setup complete. ${statusChanges} status value(s) standardized.`,
@@ -1170,12 +1246,14 @@ function onOpen() {
     .addItem('Mark as Posted', 'openMarkAsPostedDialog')
     .addSeparator()
     .addItem('Open My Task Queue', 'openMyTaskQueueSidebar')
+    .addItem('Open Web App Dashboard', 'openWebAppDashboard')
     .addItem('Admin Override', 'openAdminOverrideDialog')
     .addSeparator()
     .addItem('Apply Team Name Updates', 'applyTeamNameUpdates')
     .addItem('Run Workflow QA Check', 'runWorkflowQaCheck')
     .addItem('Rebuild Calendar Views', 'rebuildCalendarViews')
     .addItem('Refresh Subject/Moment Dropdowns', 'refreshSubjectMomentActionValidations')
+    .addItem('Clear Workflow Runtime Cache', 'clearWorkflowRuntimeCache')
     .addSeparator()
     .addItem('Enable Performance Timing', 'enablePerformanceTiming')
     .addItem('Disable Performance Timing', 'disablePerformanceTiming')
@@ -1183,6 +1261,7 @@ function onOpen() {
     .addItem('Disable Detailed Function Timing', 'disableDetailedPerformanceTiming')
     .addItem('Set Performance Timing Label', 'setPerformanceTimingRunLabel')
     .addItem('Run Performance Benchmark', 'runPerformanceBenchmark')
+    .addItem('Run High-Touch Performance Benchmark', 'runHighTouchPerformanceBenchmark')
     .addSeparator()
     .addItem('Rebuild Workflow Instructions', 'buildWorkflowInstructionsTab')
     .addItem('Run Phase 1 Setup', 'setupPhase1DatabaseFoundation')
@@ -1191,6 +1270,38 @@ function onOpen() {
 
 function onEdit(e) {
   handleMultiSelectValidationEdit_(e);
+}
+
+function doGet() {
+  return HtmlService.createTemplateFromFile('Dashboard')
+    .evaluate()
+    .setTitle('Content Operations Dashboard');
+}
+
+function openWebAppDashboard() {
+  const url = ScriptApp.getService().getUrl();
+  const message = url
+    ? `<p>Open the Content Operations Dashboard in a browser tab.</p><p><a href="${escapeHtmlForDialog_(url)}" target="_blank" rel="noopener">Open dashboard</a></p>`
+    : '<p>No deployed web app URL is available yet. Deploy this Apps Script project as a web app, then reopen this helper.</p>';
+  const html = HtmlService
+    .createHtmlOutput(`
+      <div style="font-family:Inter,Arial,sans-serif;color:#2A2725;background:#F7F1EB;padding:18px;line-height:1.5;">
+        <h2 style="font-family:Georgia,serif;font-weight:400;margin:0 0 10px;">Web App Dashboard</h2>
+        ${message}
+      </div>
+    `)
+    .setWidth(420)
+    .setHeight(180);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Web App Dashboard');
+}
+
+function escapeHtmlForDialog_(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function rebuildCalendarViews() {
@@ -1202,8 +1313,25 @@ function rebuildCalendarViews() {
   });
 }
 
+function clearWorkflowRuntimeCache() {
+  clearWorkflowRuntimeCache_();
+  SpreadsheetApp.getActive().toast('Workflow runtime cache cleared.', 'Content Workflow', 5);
+  return { ok: true };
+}
+
+function clearWorkflowRuntimeCache_() {
+  CONTENT_HEADER_CONTEXT_MEMORY_CACHE_ = null;
+  WORKFLOW_OPTIONS_MEMORY_CACHE_ = null;
+  try {
+    CacheService.getDocumentCache().removeAll(Object.keys(WORKFLOW_RUNTIME_CACHE_KEYS).map((key) => WORKFLOW_RUNTIME_CACHE_KEYS[key]));
+  } catch (error) {
+    // Cache clearing is best-effort; runtime behavior should continue if CacheService is unavailable.
+  }
+}
+
 function refreshSubjectMomentActionValidations() {
   return withTiming_('refreshSubjectMomentActionValidations', () => {
+    clearWorkflowRuntimeCache_();
     const spreadsheet = SpreadsheetApp.getActive();
     const subjectRange = spreadsheet.getRangeByName(configRangeName_('Subjects'));
     const momentActionRange = spreadsheet.getRangeByName(configRangeName_('Moment Actions'));
@@ -1368,8 +1496,7 @@ function submitWorkflowDialog(action, payload) {
 function getTaskQueueModel() {
   return withTiming_('getTaskQueueModel', () => {
     const spreadsheet = SpreadsheetApp.getActive();
-    const valuesByTitle = getWorkflowSettingsValuesMap_(spreadsheet);
-    const users = replaceLegacyTeamNamesInList_(getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Team Members'));
+    const users = getWorkflowOptions_(spreadsheet).teamMembers;
     return {
       users,
       defaultUser: 'Brand Manager',
@@ -1377,29 +1504,210 @@ function getTaskQueueModel() {
   });
 }
 
+function getContentPlanningReadContext_(spreadsheet) {
+  const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
+  let headerContext = getContentHeaderContextFromCache_();
+  if (!headerContext) {
+    headerContext = {
+      columnMap: getHeaderMap_(sheet, PHASE1.rows.contentHeader),
+      lastColumn: sheet.getLastColumn(),
+    };
+    setContentHeaderContextCache_(headerContext);
+  }
+
+  const lastDataRow = sheet.getLastRow();
+  return {
+    sheet,
+    columnMap: headerContext.columnMap,
+    lastColumn: headerContext.lastColumn,
+    taskQueueFilterLastColumn: getTaskQueueFilterLastColumn_(headerContext.columnMap),
+    taskQueueLastColumn: getTaskQueueReadLastColumn_(headerContext.columnMap),
+    lastDataRow,
+    rowCount: Math.max(lastDataRow - PHASE1.rows.contentDataStart + 1, 0),
+  };
+}
+
+function getContentHeaderContextFromCache_() {
+  if (CONTENT_HEADER_CONTEXT_MEMORY_CACHE_) {
+    return CONTENT_HEADER_CONTEXT_MEMORY_CACHE_;
+  }
+
+  try {
+    const cachedValue = CacheService.getDocumentCache().get(WORKFLOW_RUNTIME_CACHE_KEYS.contentHeaderMap);
+    if (!cachedValue) {
+      return null;
+    }
+    CONTENT_HEADER_CONTEXT_MEMORY_CACHE_ = JSON.parse(cachedValue);
+    return CONTENT_HEADER_CONTEXT_MEMORY_CACHE_;
+  } catch (error) {
+    return null;
+  }
+}
+
+function setContentHeaderContextCache_(headerContext) {
+  CONTENT_HEADER_CONTEXT_MEMORY_CACHE_ = headerContext;
+  try {
+    CacheService.getDocumentCache().put(
+      WORKFLOW_RUNTIME_CACHE_KEYS.contentHeaderMap,
+      JSON.stringify(headerContext),
+      WORKFLOW_RUNTIME_CACHE_TTL_SECONDS
+    );
+  } catch (error) {
+    // Header context caching is best-effort; live reads are used when cache is unavailable.
+  }
+}
+
+function getTaskQueueReadLastColumn_(columnMap) {
+  const headers = [
+    PHASE1.coreHeaders.contentId,
+    'Concept ID',
+    'Brand',
+    'Dual Brand Set',
+    'Idea',
+    'Filming Date',
+    'Assigned Filmer(s)',
+    PHASE1.coreHeaders.status,
+    'Current Owner',
+    'Blocker / Issue',
+    'Brand Angle',
+    'Edited V1 URL',
+    'Edited V2 URL',
+    'Edited V3 URL',
+    'Final Approved Video URL',
+    'Revision Count',
+    'Brand Manager Feedback',
+    'Editor Notes',
+    'Platform(s)',
+    'Posting Date',
+    'Time',
+    'Caption',
+    'CTA',
+    'Hashtags',
+  ];
+  return Math.max.apply(null, headers.map((header) => columnMap[header] || 0).concat([1]));
+}
+
+function getTaskQueueFilterLastColumn_(columnMap) {
+  const headers = [
+    PHASE1.coreHeaders.contentId,
+    PHASE1.coreHeaders.status,
+    'Current Owner',
+    'Assigned Filmer(s)',
+  ];
+  return Math.max.apply(null, headers.map((header) => columnMap[header] || 0).concat([1]));
+}
+
+function buildTaskQueueRecords_(context, userName) {
+  const normalizedUser = String(userName || '').trim();
+  const isAdmin = normalizedUser === 'Admin' || normalizedUser === 'Vivianne' || !normalizedUser;
+  if (isAdmin) {
+    context.taskQueueReadMode = 'full';
+    context.taskQueueCandidateCount = '';
+    return readTaskQueueFullRecords_(context, normalizedUser);
+  }
+
+  const candidates = readTaskQueueCandidateRecords_(context, normalizedUser);
+  context.taskQueueCandidateCount = candidates.length;
+  if (candidates.length > TASK_QUEUE_SELECTIVE_READ_MAX_ROWS) {
+    context.taskQueueReadMode = 'full-after-filter';
+    return readTaskQueueFullRecords_(context, normalizedUser);
+  }
+  context.taskQueueReadMode = 'selective';
+  return readTaskQueueDetailRecords_(context, candidates);
+}
+
+function readTaskQueueCandidateRecords_(context, userName) {
+  if (!context.rowCount) {
+    return [];
+  }
+
+  const values = context.sheet
+    .getRange(PHASE1.rows.contentDataStart, 1, context.rowCount, context.taskQueueFilterLastColumn)
+    .getDisplayValues();
+  return values
+    .map((row, index) => rowToContentRecord_(row, context.columnMap, PHASE1.rows.contentDataStart + index))
+    .filter((record) => record.contentId && record.status !== 'Posted')
+    .filter((record) => taskBelongsInQueue_(record, userName));
+}
+
+function readTaskQueueFullRecords_(context, userName) {
+  if (!context.rowCount) {
+    return [];
+  }
+
+  return context.sheet
+    .getRange(PHASE1.rows.contentDataStart, 1, context.rowCount, context.taskQueueLastColumn)
+    .getDisplayValues()
+    .map((row, index) => rowToContentRecord_(row, context.columnMap, PHASE1.rows.contentDataStart + index))
+    .filter((record) => record.contentId && record.status !== 'Posted')
+    .filter((record) => taskBelongsInQueue_(record, userName));
+}
+
+function readTaskQueueDetailRecords_(context, candidates) {
+  if (!candidates.length) {
+    return [];
+  }
+
+  const records = [];
+  let groupStartRow = 0;
+  let groupRows = [];
+  let previousRow = 0;
+
+  const flush = () => {
+    if (!groupRows.length) {
+      return;
+    }
+    context.sheet
+      .getRange(groupStartRow, 1, groupRows.length, context.taskQueueLastColumn)
+      .getDisplayValues()
+      .forEach((row, index) => {
+        records.push(rowToContentRecord_(row, context.columnMap, groupStartRow + index));
+      });
+    groupStartRow = 0;
+    groupRows = [];
+    previousRow = 0;
+  };
+
+  candidates.forEach((candidate) => {
+    if (!groupRows.length) {
+      groupStartRow = candidate.row;
+      previousRow = candidate.row;
+      groupRows.push(candidate.row);
+      return;
+    }
+
+    if (candidate.row === previousRow + 1) {
+      previousRow = candidate.row;
+      groupRows.push(candidate.row);
+      return;
+    }
+
+    flush();
+    groupStartRow = candidate.row;
+    previousRow = candidate.row;
+    groupRows.push(candidate.row);
+  });
+
+  flush();
+  return records;
+}
+
 function getTaskQueue(userName) {
   return withTiming_('getTaskQueue', () => {
     const spreadsheet = SpreadsheetApp.getActive();
-    const sheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
-    const columnMap = getHeaderMap_(sheet, PHASE1.rows.contentHeader);
-    const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
-    const lastDataRow = getLastContentDataRow_(sheet, contentIdColumn);
+    const context = getContentPlanningReadContext_(spreadsheet);
     const normalizedUser = String(userName || '').trim();
 
-    if (lastDataRow < PHASE1.rows.contentDataStart) {
+    if (context.lastDataRow < PHASE1.rows.contentDataStart) {
       return buildTaskQueuePayload_([], normalizedUser);
     }
 
-    const rowCount = lastDataRow - PHASE1.rows.contentDataStart + 1;
-    const values = withTiming_('getTaskQueue.readContentRows', () => (
-      sheet.getRange(PHASE1.rows.contentDataStart, 1, rowCount, sheet.getLastColumn()).getDisplayValues()
-    ), { rowCount });
+    const records = withTiming_('getTaskQueue.readContentRows', () => (
+      buildTaskQueueRecords_(context, normalizedUser)
+    ), { rowCount: context.rowCount, columns: context.taskQueueLastColumn });
     const revisionHistoryMap = withTiming_('getTaskQueue.getRevisionHistoryMap_', () => getRevisionHistoryMap_(spreadsheet));
 
-    const tasks = withTiming_('getTaskQueue.buildTasks', () => values
-      .map((row, index) => rowToContentRecord_(row, columnMap, PHASE1.rows.contentDataStart + index))
-      .filter((record) => record.contentId && record.status !== 'Posted')
-      .filter((record) => taskBelongsInQueue_(record, normalizedUser))
+    const tasks = withTiming_('getTaskQueue.buildTasks', () => records
       .map((record) => hydrateTaskQueueRecord_(record, revisionHistoryMap, normalizedUser)));
 
     return buildTaskQueuePayload_(groupDualBrandFilmingTasks_(tasks, normalizedUser).slice(0, 100), normalizedUser);
@@ -1461,6 +1769,529 @@ function buildTaskQueueSummary_(tasks) {
 
 function incrementCount_(map, key) {
   map[key] = (map[key] || 0) + 1;
+}
+
+function getDashboardLoginModel() {
+  return withTiming_('getDashboardLoginModel', () => {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const options = getWorkflowOptions_(spreadsheet);
+    const teamMembers = options.teamMembers || [];
+    const profiles = DASHBOARD_ACCESS_PROFILES.map((profile) => {
+      const userNames = profile.userNames.filter((name) => teamMembers.indexOf(name) !== -1);
+      return {
+        id: profile.id,
+        label: profile.label,
+        defaultUser: profile.defaultUser,
+        userNames: userNames.length ? userNames : profile.userNames.slice(),
+        focusLabel: profile.focusLabel,
+      };
+    });
+
+    return {
+      profiles,
+      effectiveUserEmail: getEffectiveUserEmail_(),
+      deploymentAccess: 'Team Google accounts',
+    };
+  });
+}
+
+function getDashboardInitialModel(session) {
+  return withTiming_('getDashboardInitialModel', () => {
+    const profile = getDashboardProfile_(session);
+    const spreadsheet = SpreadsheetApp.getActive();
+    const allTasks = getDashboardActiveTasks_(spreadsheet, profile);
+    const focusTasks = applyDashboardTaskFilters_(allTasks, profile, { mode: 'focus' });
+    const groupedFocusTasks = groupDualBrandFilmingTasks_(focusTasks, profile.taskUser);
+
+    return {
+      profile: buildDashboardProfilePayload_(profile),
+      summary: buildTaskQueueSummary_(allTasks),
+      focusTasks: groupedFocusTasks.slice(0, DASHBOARD_TASK_LIMIT).map((task) => buildDashboardTaskCard_(task, profile)),
+      globalActions: buildDashboardGlobalActions_(profile),
+      tabs: [
+        { id: 'tasks', label: 'Tasks' },
+        { id: 'filmingCalendar', label: 'Filming Calendar' },
+        { id: 'contentCalendar', label: 'Content Calendar' },
+        { id: 'kanban', label: 'Kanban' },
+        { id: 'ideas', label: 'Ideas' },
+      ],
+      taskLimit: DASHBOARD_TASK_LIMIT,
+      effectiveUserEmail: getEffectiveUserEmail_(),
+    };
+  });
+}
+
+function getDashboardTasks(session, filters) {
+  return withTiming_('getDashboardTasks', () => {
+    const profile = getDashboardProfile_(session);
+    const allTasks = getDashboardActiveTasks_(SpreadsheetApp.getActive(), profile);
+    const filteredTasks = applyDashboardTaskFilters_(allTasks, profile, filters || {});
+    const groupedTasks = groupDualBrandFilmingTasks_(filteredTasks, profile.taskUser);
+
+    return {
+      profile: buildDashboardProfilePayload_(profile),
+      mode: filters && filters.mode === 'all' ? 'all' : 'focus',
+      total: groupedTasks.length,
+      summary: buildTaskQueueSummary_(filteredTasks),
+      tasks: groupedTasks.slice(0, DASHBOARD_TASK_LIMIT).map((task) => buildDashboardTaskCard_(task, profile)),
+    };
+  });
+}
+
+function getDashboardCalendar(session, params) {
+  return withTiming_('getDashboardCalendar', () => {
+    const profile = getDashboardProfile_(session);
+    const spreadsheet = SpreadsheetApp.getActive();
+    const context = getContentPlanningReadContext_(spreadsheet);
+    const type = params && params.type === 'posting' ? 'posting' : 'filming';
+    const dateHeader = type === 'posting' ? 'Posting Date' : 'Filming Date';
+    const requestedStart = params && params.startDate ? parseDashboardDateInput_(params.startDate) : null;
+    const startDate = requestedStart || getFirstDayOfCurrentMonth_(spreadsheet);
+    const days = getDashboardCalendarDays_(startDate);
+    const dayKeys = days.reduce((map, day) => {
+      map[day.key] = true;
+      return map;
+    }, {});
+    const eventsByDate = {};
+
+    if (context.rowCount) {
+      buildCalendarEventRecords_(context.sheet, context.columnMap, context.rowCount, {
+        dateHeader,
+        eventType: type,
+      }).forEach((record) => {
+        const date = parseSheetDate_(record[dateHeader]);
+        const key = date ? calendarDateKey_(date) : '';
+        if (!record.contentId || !dayKeys[key]) {
+          return;
+        }
+        if (!eventsByDate[key]) {
+          eventsByDate[key] = [];
+        }
+        eventsByDate[key].push(buildDashboardCalendarEvent_(record, type, key, profile));
+      });
+    }
+
+    Object.keys(eventsByDate).forEach((key) => {
+      eventsByDate[key].sort((a, b) => String(a.sortText).localeCompare(String(b.sortText)));
+    });
+
+    return {
+      profile: buildDashboardProfilePayload_(profile),
+      type,
+      dateHeader,
+      startDate: calendarDateKey_(startDate),
+      days,
+      eventsByDate,
+    };
+  });
+}
+
+function getDashboardKanban(session, filters) {
+  return withTiming_('getDashboardKanban', () => {
+    const profile = getDashboardProfile_(session);
+    const spreadsheet = SpreadsheetApp.getActive();
+    const options = getWorkflowOptions_(spreadsheet);
+    const allTasks = getDashboardActiveTasks_(spreadsheet, profile);
+    const filteredTasks = applyDashboardTaskFilters_(allTasks, profile, Object.assign({}, filters || {}, { mode: 'all' }));
+
+    return {
+      profile: buildDashboardProfilePayload_(profile),
+      columns: buildDashboardKanbanColumns_(filteredTasks, options.statuses || PHASE1.configLists.Statuses, profile),
+    };
+  });
+}
+
+function getDashboardIdeas(session, filters) {
+  return withTiming_('getDashboardIdeas', () => {
+    const profile = getDashboardProfile_(session);
+    const sheet = requireSheet_(SpreadsheetApp.getActive(), IDEA_BRAIN_DUMP.sheetName);
+    const search = String((filters && filters.search) || '').trim().toLowerCase();
+    const statusFilter = String((filters && filters.status) || '').trim();
+    const records = readIdeaBrainDumpRecords_(sheet)
+      .filter((record) => {
+        if (statusFilter && record['Brand Manager Review Status'] !== statusFilter) {
+          return false;
+        }
+        if (!search) {
+          return true;
+        }
+        return [
+          record['Idea ID'],
+          record['Idea / Title'],
+          record['Content Pillar'],
+          record.Format,
+          record.Goal,
+          record.Subject,
+          record['Moment / Action'],
+          record.Notes,
+          record['Submitted By'],
+        ].join(' ').toLowerCase().indexOf(search) !== -1;
+      })
+      .slice(0, DASHBOARD_IDEA_LIMIT)
+      .map((record) => buildDashboardIdeaCard_(record, profile));
+
+    return {
+      profile: buildDashboardProfilePayload_(profile),
+      ideas: records,
+      limit: DASHBOARD_IDEA_LIMIT,
+      statuses: ['Needs Review', 'Reviewed', 'Promoted', 'Backlog'],
+    };
+  });
+}
+
+function getDashboardActionModel(session, action, context) {
+  return withTiming_('getDashboardActionModel', () => {
+    const profile = getDashboardProfile_(session);
+    return buildDashboardActionModel_(profile, action, context || {});
+  }, { action });
+}
+
+function submitDashboardAction(session, action, payload) {
+  return withTiming_('submitDashboardAction', () => {
+    const profile = getDashboardProfile_(session);
+    const cleanPayload = sanitizePayload_(payload || {});
+    if (action === 'addIdea' && !cleanPayload.submittedBy) {
+      cleanPayload.submittedBy = profile.userName;
+    }
+    assertDashboardActionAllowed_(profile, action, cleanPayload);
+
+    let result;
+    switch (action) {
+      case 'addIdea':
+        result = addNewIdea_(cleanPayload);
+        break;
+      case 'promoteIdea':
+        result = promoteIdeaToPlanning_(cleanPayload);
+        break;
+      case 'assignFilming':
+        result = assignFilmingTask_(cleanPayload);
+        break;
+      case 'submitRawFootage':
+        result = submitRawFootage_(cleanPayload);
+        break;
+      case 'startEditing':
+        result = startEditing_(cleanPayload);
+        break;
+      case 'submitEditedVersion':
+        result = submitEditedVersion_(cleanPayload);
+        break;
+      case 'reviewApprove':
+        result = reviewApproveContent_(cleanPayload);
+        break;
+      case 'scheduleContent':
+        result = scheduleContent_(cleanPayload);
+        break;
+      case 'markPosted':
+        result = markContentPosted_(cleanPayload);
+        break;
+      case 'adminOverride':
+        result = adminOverrideContent_(cleanPayload);
+        break;
+      default:
+        throw new Error(`Unknown dashboard action: ${action}`);
+    }
+
+    clearWorkflowRuntimeCache_();
+    return result;
+  }, { action });
+}
+
+function getDashboardProfile_(session) {
+  const rawSession = session || {};
+  const profileId = String(rawSession.profileId || rawSession.role || '').trim();
+  const profile = DASHBOARD_ACCESS_PROFILES.filter((item) => item.id === profileId)[0] || DASHBOARD_ACCESS_PROFILES[2];
+  const requestedUserName = String(rawSession.userName || '').trim();
+  const allowedUserNames = profile.userNames.slice();
+  const userName = allowedUserNames.indexOf(requestedUserName) !== -1 ? requestedUserName : profile.defaultUser;
+  const taskUser = profile.id === 'admin' ? userName : profile.focusUser || userName;
+
+  return Object.assign({}, profile, {
+    userName,
+    taskUser,
+    allowedActions: profile.allowedActions.slice(),
+  });
+}
+
+function buildDashboardProfilePayload_(profile) {
+  return {
+    id: profile.id,
+    label: profile.label,
+    userName: profile.userName,
+    taskUser: profile.taskUser,
+    focusLabel: profile.focusLabel,
+    allowedActions: profile.allowedActions.slice(),
+  };
+}
+
+function buildDashboardGlobalActions_(profile) {
+  return DASHBOARD_UNIVERSAL_ACTIONS
+    .filter((action) => profile.allowedActions.indexOf(action) !== -1)
+    .map((action) => ({
+      action,
+      label: actionLabel_(action),
+    }));
+}
+
+function getDashboardActiveTasks_(spreadsheet, profile) {
+  const context = getContentPlanningReadContext_(spreadsheet);
+  if (!context.rowCount) {
+    return [];
+  }
+  const records = readTaskQueueFullRecords_(context, 'Admin');
+  const revisionHistoryMap = getRevisionHistoryMap_(spreadsheet);
+  return records.map((record) => hydrateTaskQueueRecord_(record, revisionHistoryMap, profile.taskUser));
+}
+
+function applyDashboardTaskFilters_(tasks, profile, filters) {
+  const cleanFilters = filters || {};
+  const mode = cleanFilters.mode === 'all' ? 'all' : 'focus';
+  const status = String(cleanFilters.status || '').trim();
+  const owner = String(cleanFilters.owner || '').trim();
+  const search = String(cleanFilters.search || '').trim().toLowerCase();
+
+  return tasks.filter((task) => {
+    if (mode === 'focus' && !dashboardTaskMatchesFocus_(task, profile)) {
+      return false;
+    }
+    if (status && task.status !== status) {
+      return false;
+    }
+    if (owner && task.currentOwner !== owner) {
+      return false;
+    }
+    if (!search) {
+      return true;
+    }
+    return [
+      task.contentId,
+      task.displayContentId,
+      task.idea,
+      task.status,
+      task.currentOwner,
+      task['Assigned Filmer(s)'],
+      task.Brand,
+      task['Concept ID'],
+      task.platforms,
+    ].join(' ').toLowerCase().indexOf(search) !== -1;
+  });
+}
+
+function dashboardTaskMatchesFocus_(task, profile) {
+  if (profile.id === 'admin') {
+    return true;
+  }
+  if (profile.id === 'marketingIntern') {
+    return taskBelongsInQueue_(task, profile.userName);
+  }
+  return taskBelongsInQueue_(task, profile.taskUser);
+}
+
+function buildDashboardTaskCard_(task, profile) {
+  const actions = (task.availableActions || [])
+    .filter((item) => profile.allowedActions.indexOf(item.action) !== -1);
+  return {
+    contentId: task.contentId || '',
+    displayContentId: task.displayContentId || task.contentId || '',
+    conceptId: task['Concept ID'] || '',
+    brand: task.brandDisplay || task.Brand || '',
+    idea: task.idea || '',
+    status: task.status || '',
+    currentOwner: task.currentOwner || '',
+    assignedFilmer: task['Assigned Filmer(s)'] || '',
+    filmingDate: task['Filming Date'] || '',
+    postingDate: task.postingDate || task['Posting Date'] || '',
+    postingTime: task.postingTime || task.Time || '',
+    platforms: task.platforms || task['Platform(s)'] || '',
+    priority: task.Priority || '',
+    latestVersion: task.latestVersion || '',
+    latestEditedUrl: task.latestEditedUrl || '',
+    finalApprovedVideoUrl: task.finalApprovedVideoUrl || '',
+    brandManagerFeedback: task.brandManagerFeedback || '',
+    editorNotes: task.editorNotes || '',
+    blockerIssue: task.blockerIssue || '',
+    isBlocked: Boolean(task.isBlocked),
+    overdueLabel: task.overdueLabel || '',
+    isOverdue: Boolean(task.isOverdue),
+    schedulingMissing: task.schedulingReadiness && task.schedulingReadiness.missing ? task.schedulingReadiness.missing : [],
+    captionPreview: task.postingContext && task.postingContext.captionPreview ? task.postingContext.captionPreview : '',
+    availableActions: actions,
+  };
+}
+
+function getDashboardCalendarDays_(startDate) {
+  const start = new Date(startDate.getTime());
+  start.setHours(0, 0, 0, 0);
+  return Array.from({ length: DASHBOARD_CALENDAR_DAY_COUNT }, (_, index) => {
+    const date = new Date(start.getTime());
+    date.setDate(start.getDate() + index);
+    return {
+      key: calendarDateKey_(date),
+      label: Utilities.formatDate(date, Session.getScriptTimeZone(), 'MMM d'),
+      weekday: Utilities.formatDate(date, Session.getScriptTimeZone(), 'EEE'),
+    };
+  });
+}
+
+function parseDashboardDateInput_(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+  return parseSheetDate_(value);
+}
+
+function buildDashboardCalendarEvent_(record, type, dateKey, profile) {
+  const text = buildCalendarEventText_(record, type);
+  return {
+    dateKey,
+    contentId: record.contentId || '',
+    status: record.status || '',
+    brand: record.Brand || '',
+    idea: record.idea || record.Idea || '',
+    time: type === 'posting' ? formatCalendarTime_(record.Time) : '',
+    platforms: record['Platform(s)'] || '',
+    assignedFilmer: record['Assigned Filmer(s)'] || '',
+    text,
+    sortText: [type === 'posting' ? formatCalendarTime_(record.Time) : '', record.status || '', record.contentId || ''].join(' '),
+    availableActions: getAvailableActionsForRecord_(record, profile.taskUser)
+      .filter((item) => profile.allowedActions.indexOf(item.action) !== -1),
+  };
+}
+
+function buildDashboardKanbanColumns_(tasks, statuses, profile) {
+  const statusList = uniqueNonEmpty_((statuses || []).concat(tasks.map((task) => task.status || 'Blank')))
+    .filter((status) => status !== 'Posted');
+  const tasksByStatus = tasks.reduce((map, task) => {
+    const status = task.status || 'Blank';
+    if (!map[status]) {
+      map[status] = [];
+    }
+    map[status].push(task);
+    return map;
+  }, {});
+
+  return statusList.map((status) => {
+    const columnTasks = tasksByStatus[status] || [];
+    return {
+      status,
+      total: columnTasks.length,
+      tasks: columnTasks
+        .slice(0, DASHBOARD_KANBAN_CARD_LIMIT_PER_STATUS)
+        .map((task) => buildDashboardTaskCard_(task, profile)),
+    };
+  });
+}
+
+function buildDashboardIdeaCard_(record, profile) {
+  const status = record['Brand Manager Review Status'] || '';
+  const canPromote = profile.allowedActions.indexOf('promoteIdea') !== -1 && status !== 'Promoted';
+  return {
+    row: record.row || '',
+    ideaId: record['Idea ID'] || '',
+    submittedDate: record['Submitted Date'] || '',
+    submittedBy: record['Submitted By'] || '',
+    reviewStatus: status,
+    promoteToPlanning: record['Promote to 1A?'] || '',
+    contentPillar: record['Content Pillar'] || '',
+    format: record.Format || '',
+    goal: record.Goal || '',
+    ideaTitle: record['Idea / Title'] || '',
+    subject: record.Subject || '',
+    momentAction: record['Moment / Action'] || '',
+    inspirationLink: record['Inspiration Link'] || '',
+    notes: record.Notes || '',
+    promotedContentId: record['Promoted Content #'] || '',
+    promotedTimestamp: record['Promoted Timestamp'] || '',
+    availableActions: canPromote ? [{ action: 'promoteIdea', label: actionLabel_('promoteIdea') }] : [],
+  };
+}
+
+function buildDashboardActionModel_(profile, action, context) {
+  const cleanContext = context || {};
+  const contentId = cleanContext.contentId || cleanContext.displayContentId || '';
+  const ideaRow = cleanContext.ideaRow || cleanContext.row || '';
+  const selectedContent = contentId ? getContentRecordById_(contentId) : null;
+  const selectedIdea = ideaRow ? getIdeaContextByRow_(ideaRow) : null;
+  assertDashboardActionAllowed_(profile, action, {
+    contentId,
+    ideaRow,
+  });
+
+  const config = getWorkflowActionConfig_(action);
+  const display = getWorkflowActionDisplay_(action, selectedContent);
+  const defaults = buildWorkflowDefaults_(action, selectedContent, selectedIdea, contentId);
+  if (action === 'addIdea') {
+    defaults.submittedBy = profile.userName;
+  }
+  if (action === 'promoteIdea' && !defaults.brandSet) {
+    defaults.brandSet = DUAL_BRAND_SETS.both;
+  }
+  if (action === 'promoteIdea' && selectedIdea && selectedIdea.row) {
+    defaults.ideaRow = selectedIdea.row;
+  }
+
+  return {
+    action,
+    title: display.title || config.title,
+    submitLabel: display.submitLabel || config.submitLabel,
+    fields: config.fields,
+    options: getWorkflowOptions_(SpreadsheetApp.getActive()),
+    selectedContent,
+    selectedIdea,
+    contextLines: buildWorkflowContextLines_(action, selectedContent),
+    defaults,
+  };
+}
+
+function getIdeaContextByRow_(rowValue) {
+  const row = Number(rowValue);
+  if (!row || row < IDEA_BRAIN_DUMP.dataStart) {
+    return null;
+  }
+  const spreadsheet = SpreadsheetApp.getActive();
+  const sheet = requireSheet_(spreadsheet, IDEA_BRAIN_DUMP.sheetName);
+  const columnMap = getHeaderMap_(sheet, IDEA_BRAIN_DUMP.headerRow);
+  const values = sheet.getRange(row, 1, 1, Math.max(sheet.getLastColumn(), IDEA_BRAIN_DUMP.headers.length)).getDisplayValues()[0];
+  const record = rowToIdeaBrainDumpRecord_(values, columnMap);
+  return {
+    row,
+    contentPillar: record['Content Pillar'] || '',
+    format: record.Format || '',
+    goal: record.Goal || '',
+    ideaTitle: record['Idea / Title'] || '',
+    inspirationLink: record['Inspiration Link'] || '',
+    subject: record.Subject || '',
+    momentAction: record['Moment / Action'] || '',
+  };
+}
+
+function assertDashboardActionAllowed_(profile, action, payload) {
+  if (profile.allowedActions.indexOf(action) === -1) {
+    throw new Error(`${profile.label} access cannot use ${actionLabel_(action)} from the dashboard.`);
+  }
+  if (DASHBOARD_UNIVERSAL_ACTIONS.indexOf(action) !== -1) {
+    return;
+  }
+
+  const contentId = payload && payload.contentId;
+  if (!contentId) {
+    if (action === 'adminOverride') {
+      return;
+    }
+    throw new Error(`${actionLabel_(action)} requires a Content #.`);
+  }
+
+  const record = getContentRecordById_(contentId);
+  const allowedForRecord = getAvailableActionsForRecord_(record, profile.taskUser)
+    .some((item) => item.action === action);
+  if (!allowedForRecord) {
+    throw new Error(`${profile.label} access cannot use ${actionLabel_(action)} for Content #${contentId} in status "${record.status || 'blank'}".`);
+  }
+
+  if (action === 'submitRawFootage' && profile.id === 'marketingIntern' && !isUserAssignedFilmer_(record, profile.userName)) {
+    throw new Error(`Content #${contentId} is not assigned to ${profile.userName}.`);
+  }
 }
 
 function groupDualBrandFilmingTasks_(tasks, userName) {
@@ -2310,6 +3141,17 @@ function adminOverrideContent_(payload) {
 }
 
 function getWorkflowOptions_(spreadsheet) {
+  const cachedOptions = getWorkflowOptionsFromCache_();
+  if (cachedOptions) {
+    return cachedOptions;
+  }
+
+  const options = buildWorkflowOptions_(spreadsheet);
+  setWorkflowOptionsCache_(options);
+  return options;
+}
+
+function buildWorkflowOptions_(spreadsheet) {
   const valuesByTitle = getWorkflowSettingsValuesMap_(spreadsheet);
   return {
     statuses: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Statuses'),
@@ -2329,6 +3171,36 @@ function getWorkflowOptions_(spreadsheet) {
     goals: getConfigListValuesFromMap_(spreadsheet, valuesByTitle, 'Goals'),
     reviewDecisions: ['Approve', 'Request Revision'],
   };
+}
+
+function getWorkflowOptionsFromCache_() {
+  if (WORKFLOW_OPTIONS_MEMORY_CACHE_) {
+    return WORKFLOW_OPTIONS_MEMORY_CACHE_;
+  }
+
+  try {
+    const cachedValue = CacheService.getDocumentCache().get(WORKFLOW_RUNTIME_CACHE_KEYS.workflowOptions);
+    if (!cachedValue) {
+      return null;
+    }
+    WORKFLOW_OPTIONS_MEMORY_CACHE_ = JSON.parse(cachedValue);
+    return WORKFLOW_OPTIONS_MEMORY_CACHE_;
+  } catch (error) {
+    return null;
+  }
+}
+
+function setWorkflowOptionsCache_(options) {
+  WORKFLOW_OPTIONS_MEMORY_CACHE_ = options;
+  try {
+    CacheService.getDocumentCache().put(
+      WORKFLOW_RUNTIME_CACHE_KEYS.workflowOptions,
+      JSON.stringify(options),
+      WORKFLOW_RUNTIME_CACHE_TTL_SECONDS
+    );
+  } catch (error) {
+    // Cache writes are best-effort; callers still receive the freshly built options.
+  }
 }
 
 function buildWorkflowDefaults_(action, selectedContent, selectedIdea, prefillContentId) {
@@ -3236,6 +4108,7 @@ function readIdeaBrainDumpRecords_(sheet) {
   return values
     .map((row, index) => {
       const record = rowToIdeaBrainDumpRecord_(row, headerMap);
+      record.row = IDEA_BRAIN_DUMP.dataStart + index;
       attachIdeaBrainDumpRichText_(record, richTextValues[index], headerMap);
       return record;
     })
@@ -4269,8 +5142,7 @@ function getCalendarControls_(sheet, spreadsheet) {
 
 function getCalendarEventsByDate_(spreadsheet, columnMap, config) {
   const contentSheet = requireSheet_(spreadsheet, PHASE1.sheets.content);
-  const contentIdColumn = columnMap[PHASE1.coreHeaders.contentId];
-  const lastDataRow = getLastContentDataRow_(contentSheet, contentIdColumn);
+  const lastDataRow = contentSheet.getLastRow();
   const eventsByDate = {};
   if (lastDataRow < PHASE1.rows.contentDataStart) {
     return eventsByDate;
@@ -4297,28 +5169,34 @@ function getCalendarEventsByDate_(spreadsheet, columnMap, config) {
 }
 
 function buildCalendarEventRecords_(sheet, columnMap, rowCount, config) {
-  const headers = getCalendarEventHeaders_(config);
-  const dateHeader = config.dateHeader;
-  const displayHeaders = headers.filter((header) => header !== dateHeader);
-  const displayValuesByHeader = readSparseColumnValues_(sheet, columnMap, displayHeaders, rowCount, 'display');
-  const dateValuesByHeader = readSparseColumnValues_(sheet, columnMap, [dateHeader], rowCount, 'value');
-  const records = [];
+  const entries = getCalendarEventHeaders_(config)
+    .filter((header) => columnMap[header])
+    .map((header) => ({
+      header,
+      column: columnMap[header],
+    }))
+    .sort((a, b) => a.column - b.column);
 
-  for (let index = 0; index < rowCount; index += 1) {
-    const record = {
-      row: PHASE1.rows.contentDataStart + index,
-    };
-    displayHeaders.forEach((header) => {
-      record[header] = (displayValuesByHeader[header] || [])[index] || '';
+  if (!entries.length) {
+    return [];
+  }
+
+  const firstColumn = entries[0].column;
+  const lastColumn = entries[entries.length - 1].column;
+  const values = sheet
+    .getRange(PHASE1.rows.contentDataStart, firstColumn, rowCount, lastColumn - firstColumn + 1)
+    .getDisplayValues();
+
+  return values.map((row, index) => {
+    const record = { row: PHASE1.rows.contentDataStart + index };
+    entries.forEach((entry) => {
+      record[entry.header] = row[entry.column - firstColumn] || '';
     });
-    record[dateHeader] = (dateValuesByHeader[dateHeader] || [])[index] || '';
     record.contentId = record[PHASE1.coreHeaders.contentId] || '';
     record.status = record[PHASE1.coreHeaders.status] || '';
     record.idea = record.Idea || '';
-    records.push(record);
-  }
-
-  return records;
+    return record;
+  });
 }
 
 function getCalendarEventHeaders_(config) {
@@ -4335,59 +5213,6 @@ function getCalendarEventHeaders_(config) {
     headers.push('Assigned Filmer(s)');
   }
   return uniqueNonEmpty_(headers);
-}
-
-function readSparseColumnValues_(sheet, columnMap, headers, rowCount, mode) {
-  const valuesByHeader = {};
-  const entries = uniqueNonEmpty_(headers)
-    .filter((header) => columnMap[header])
-    .map((header) => ({
-      header,
-      column: columnMap[header],
-    }))
-    .sort((a, b) => a.column - b.column);
-
-  let groupStartColumn = 0;
-  let groupEntries = [];
-  let previousColumn = 0;
-
-  const flush = () => {
-    if (!groupEntries.length) {
-      return;
-    }
-
-    const range = sheet.getRange(PHASE1.rows.contentDataStart, groupStartColumn, rowCount, groupEntries.length);
-    const values = mode === 'value' ? range.getValues() : range.getDisplayValues();
-    groupEntries.forEach((entry, offset) => {
-      valuesByHeader[entry.header] = values.map((row) => row[offset]);
-    });
-    groupStartColumn = 0;
-    groupEntries = [];
-    previousColumn = 0;
-  };
-
-  entries.forEach((entry) => {
-    if (!groupEntries.length) {
-      groupStartColumn = entry.column;
-      groupEntries.push(entry);
-      previousColumn = entry.column;
-      return;
-    }
-
-    if (entry.column === previousColumn + 1) {
-      groupEntries.push(entry);
-      previousColumn = entry.column;
-      return;
-    }
-
-    flush();
-    groupStartColumn = entry.column;
-    groupEntries.push(entry);
-    previousColumn = entry.column;
-  });
-
-  flush();
-  return valuesByHeader;
 }
 
 function applyCalendarDisplayFields_(record, displayRow, columnMap) {

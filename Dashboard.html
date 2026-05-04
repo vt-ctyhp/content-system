@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg-foundation: #F7F1EB;
+        --surface-card: #FBF7F1;
+        --surface-inset: #EFE8DD;
+        --ink-primary: #2A2725;
+        --ink-body: #4A4540;
+        --ink-muted: #8A8178;
+        --rule: #D4CFC4;
+        --accent: #E91D79;
+      }
+
+      * { box-sizing: border-box; }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        background: var(--bg-foundation);
+        color: var(--ink-body);
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        border: 1px solid var(--ink-primary);
+        background: transparent;
+        color: var(--ink-primary);
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        line-height: 1;
+        padding: 12px 16px;
+        text-transform: uppercase;
+        transition: background-color 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out, opacity 140ms ease-out;
+      }
+
+      button:hover:not(:disabled) {
+        background: var(--ink-primary);
+        color: var(--bg-foundation);
+      }
+
+      button.primary {
+        background: var(--ink-primary);
+        color: var(--bg-foundation);
+      }
+
+      button.primary:hover:not(:disabled) {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      button:disabled {
+        cursor: default;
+        opacity: 0.45;
+      }
+
+      .app {
+        min-height: 100vh;
+      }
+
+      .login-screen {
+        align-items: center;
+        display: flex;
+        min-height: 100vh;
+        padding: 32px;
+      }
+
+      .login-panel {
+        border-top: 2px solid var(--accent);
+        margin: 0 auto;
+        max-width: 520px;
+        padding: 32px 0 0;
+        width: 100%;
+      }
+
+      .eyebrow {
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        color: var(--ink-primary);
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-weight: 400;
+        letter-spacing: 0;
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(42px, 7vw, 76px);
+        line-height: 0.95;
+        margin: 8px 0 24px;
+      }
+
+      h2 {
+        font-size: 30px;
+        line-height: 1.05;
+      }
+
+      h3 {
+        font-size: 22px;
+        line-height: 1.1;
+      }
+
+      .login-copy {
+        border-top: 1px solid var(--rule);
+        color: var(--ink-muted);
+        line-height: 1.6;
+        margin: 0 0 24px;
+        padding-top: 16px;
+      }
+
+      .field-grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+      }
+
+      .label-text {
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      input,
+      select,
+      textarea {
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid var(--rule);
+        border-radius: 0;
+        color: var(--ink-primary);
+        min-width: 0;
+        padding: 8px 2px;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-bottom: 2px solid var(--accent);
+        outline: none;
+        padding-bottom: 7px;
+      }
+
+      textarea {
+        line-height: 1.45;
+        min-height: 96px;
+        resize: vertical;
+      }
+
+      .login-actions,
+      .toolbar,
+      .modal-actions {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .login-actions {
+        margin-top: 24px;
+      }
+
+      .status-line {
+        color: var(--ink-muted);
+        font-size: 12px;
+        min-height: 18px;
+      }
+
+      .status-line.error {
+        color: var(--accent);
+      }
+
+      .dashboard {
+        display: none;
+      }
+
+      .masthead {
+        background: var(--ink-primary);
+        color: var(--bg-foundation);
+        padding: 24px 32px;
+      }
+
+      .masthead-inner {
+        align-items: end;
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        margin: 0 auto;
+        max-width: 1480px;
+      }
+
+      .masthead h1 {
+        color: var(--bg-foundation);
+        font-size: clamp(34px, 5vw, 58px);
+        margin: 6px 0 0;
+      }
+
+      .identity {
+        color: var(--surface-inset);
+        display: grid;
+        gap: 5px;
+        justify-items: end;
+        text-align: right;
+      }
+
+      .identity strong {
+        color: var(--bg-foundation);
+        font-weight: 500;
+      }
+
+      .shell {
+        display: grid;
+        gap: 28px;
+        margin: 0 auto;
+        max-width: 1480px;
+        padding: 28px 32px 44px;
+      }
+
+      .section-head {
+        border-bottom: 1px solid var(--rule);
+        display: grid;
+        gap: 8px;
+        padding-bottom: 14px;
+      }
+
+      .summary-grid {
+        display: grid;
+        gap: 1px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .metric {
+        background: var(--surface-card);
+        border-bottom: 1px solid var(--rule);
+        padding: 18px 20px;
+      }
+
+      .metric-value {
+        color: var(--ink-primary);
+        font-size: 28px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+
+      .metric-label {
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        margin-top: 8px;
+        text-transform: uppercase;
+      }
+
+      .toolbar {
+        justify-content: space-between;
+      }
+
+      .toolbar-left,
+      .toolbar-right {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .tabs {
+        border-bottom: 1px solid var(--rule);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+      }
+
+      .tab {
+        border: 0;
+        border-right: 1px solid var(--rule);
+        padding: 14px 18px;
+      }
+
+      .tab.is-active {
+        background: var(--ink-primary);
+        color: var(--bg-foundation);
+      }
+
+      .panel {
+        display: grid;
+        gap: 18px;
+      }
+
+      .task-list,
+      .idea-list,
+      .kanban-board {
+        display: grid;
+        gap: 10px;
+      }
+
+      .task-row,
+      .idea-row {
+        background: var(--surface-card);
+        border-top: 1px solid var(--rule);
+        display: grid;
+        gap: 14px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding: 18px 0;
+      }
+
+      .task-main,
+      .idea-main {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .task-title,
+      .idea-title {
+        color: var(--ink-primary);
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 24px;
+        font-weight: 400;
+        line-height: 1.05;
+      }
+
+      .meta-line {
+        color: var(--ink-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        line-height: 1.45;
+      }
+
+      .meta-line span {
+        overflow-wrap: anywhere;
+      }
+
+      .task-actions {
+        align-items: start;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: end;
+      }
+
+      .quiet {
+        color: var(--ink-muted);
+      }
+
+      .flag {
+        color: var(--accent);
+      }
+
+      .empty,
+      .loading {
+        background: var(--surface-inset);
+        color: var(--ink-muted);
+        padding: 24px;
+      }
+
+      .empty strong {
+        color: var(--ink-primary);
+        display: block;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 22px;
+        font-weight: 400;
+        margin-bottom: 6px;
+      }
+
+      .filters {
+        align-items: end;
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 160px minmax(180px, 1fr) auto;
+      }
+
+      .calendar-grid {
+        display: grid;
+        gap: 1px;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+      }
+
+      .calendar-head,
+      .calendar-day {
+        background: var(--surface-card);
+        min-width: 0;
+        padding: 12px;
+      }
+
+      .calendar-head {
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .calendar-day {
+        border-top: 1px solid var(--rule);
+        min-height: 160px;
+      }
+
+      .date-label {
+        color: var(--ink-primary);
+        font-variant-numeric: tabular-nums;
+        margin-bottom: 10px;
+      }
+
+      .event {
+        border-top: 1px solid var(--rule);
+        color: var(--ink-body);
+        font-size: 12px;
+        line-height: 1.4;
+        padding: 8px 0;
+      }
+
+      .kanban-board {
+        align-items: start;
+        grid-template-columns: repeat(4, minmax(220px, 1fr));
+        overflow-x: auto;
+      }
+
+      .kanban-column {
+        background: var(--surface-card);
+        border-top: 1px solid var(--rule);
+        min-width: 220px;
+        padding: 14px;
+      }
+
+      .kanban-items {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .kanban-card {
+        border-top: 1px solid var(--rule);
+        display: grid;
+        gap: 6px;
+        padding-top: 10px;
+      }
+
+      .overlay {
+        align-items: center;
+        background: rgba(42, 39, 37, 0.34);
+        display: none;
+        inset: 0;
+        justify-content: center;
+        padding: 24px;
+        position: fixed;
+        z-index: 20;
+      }
+
+      .modal {
+        background: var(--bg-foundation);
+        border-top: 2px solid var(--accent);
+        max-height: min(760px, calc(100vh - 48px));
+        max-width: 760px;
+        overflow: auto;
+        padding: 28px;
+        width: 100%;
+      }
+
+      .modal-form {
+        display: grid;
+        gap: 18px;
+        margin-top: 22px;
+      }
+
+      .multi-select {
+        border-bottom: 1px solid var(--rule);
+        display: grid;
+        gap: 8px;
+        max-height: 180px;
+        overflow: auto;
+        padding: 8px 0;
+      }
+
+      .multi-option,
+      .checkbox-field {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+      }
+
+      .multi-option input,
+      .checkbox-field input {
+        min-width: 14px;
+        width: 14px;
+      }
+
+      .context-lines {
+        color: var(--ink-muted);
+        line-height: 1.5;
+        margin-top: 10px;
+      }
+
+      @media (max-width: 900px) {
+        .masthead-inner,
+        .task-row,
+        .idea-row,
+        .filters {
+          grid-template-columns: 1fr;
+        }
+
+        .identity {
+          justify-items: start;
+          text-align: left;
+        }
+
+        .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .kanban-board {
+          grid-template-columns: repeat(2, minmax(220px, 1fr));
+        }
+      }
+
+      @media (max-width: 620px) {
+        .login-screen,
+        .shell,
+        .masthead {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+
+        .summary-grid,
+        .kanban-board {
+          grid-template-columns: 1fr;
+        }
+
+        .calendar-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <section id="login-screen" class="login-screen">
+        <div class="login-panel">
+          <div class="eyebrow">Content Operations</div>
+          <h1>Workflow Dashboard</h1>
+          <p class="login-copy">Choose your dashboard access profile. The web app should be deployed for team Google accounts; this selector controls workflow focus and available actions inside the dashboard.</p>
+          <div class="field-grid">
+            <label>
+              <span class="label-text">Access profile</span>
+              <select id="login-profile"></select>
+            </label>
+            <label>
+              <span class="label-text">Viewing as</span>
+              <select id="login-user"></select>
+            </label>
+          </div>
+          <div class="login-actions">
+            <button class="primary" type="button" onclick="submitLogin()">Open dashboard</button>
+            <div id="login-status" class="status-line"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboard" class="dashboard">
+        <header class="masthead">
+          <div class="masthead-inner">
+            <div>
+              <div class="eyebrow">Content Operations</div>
+              <h1>Dashboard</h1>
+            </div>
+            <div class="identity">
+              <div><strong id="identity-user"></strong></div>
+              <div id="identity-role"></div>
+              <button type="button" onclick="showLogin()">Change access</button>
+            </div>
+          </div>
+        </header>
+
+        <main class="shell">
+          <section class="toolbar">
+            <div class="toolbar-left" id="global-actions"></div>
+            <div class="toolbar-right">
+              <button type="button" onclick="refreshDashboard()">Refresh</button>
+              <div id="app-status" class="status-line"></div>
+            </div>
+          </section>
+
+          <section>
+            <div class="section-head">
+              <div class="eyebrow">Pipeline Summary</div>
+              <h2>Full workflow view</h2>
+            </div>
+            <div id="summary" class="summary-grid"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div class="eyebrow">Focused Queue</div>
+              <h2 id="focus-heading">Your priority work</h2>
+            </div>
+            <div id="focus-tasks" class="task-list"></div>
+          </section>
+
+          <section class="panel">
+            <nav id="tabs" class="tabs"></nav>
+            <div id="view"></div>
+          </section>
+        </main>
+      </section>
+    </div>
+
+    <div id="overlay" class="overlay">
+      <div class="modal">
+        <div class="section-head">
+          <div class="eyebrow">Workflow Action</div>
+          <h2 id="modal-title"></h2>
+        </div>
+        <div id="modal-context" class="context-lines"></div>
+        <form id="modal-form" class="modal-form"></form>
+        <div class="modal-actions" style="margin-top:22px;">
+          <button type="button" onclick="closeModal()">Cancel</button>
+          <button id="modal-submit" class="primary" type="submit" form="modal-form"></button>
+          <div id="modal-status" class="status-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = 'contentWorkflowDashboardSession';
+      const state = {
+        loginModel: null,
+        session: null,
+        model: null,
+        activeTab: 'tasks',
+        taskMode: 'focus',
+        modalModel: null,
+        calendarStart: '',
+      };
+
+      function callServer(name, ...args) {
+        return new Promise((resolve, reject) => {
+          const runner = google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject);
+          runner[name](...args);
+        });
+      }
+
+      function init() {
+        setLoginStatus('Loading...');
+        callServer('getDashboardLoginModel')
+          .then((model) => {
+            state.loginModel = model;
+            renderLoginModel(model);
+            const savedSession = readSavedSession();
+            if (savedSession && isValidSavedSession(savedSession, model)) {
+              state.session = savedSession;
+              return loadDashboard();
+            }
+            setLoginStatus('');
+          })
+          .catch((error) => setLoginStatus(getErrorMessage(error), true));
+      }
+
+      function renderLoginModel(model) {
+        const profileSelect = document.getElementById('login-profile');
+        profileSelect.innerHTML = model.profiles.map((profile) => (
+          `<option value="${escapeAttr(profile.id)}">${escapeHtml(profile.label)}</option>`
+        )).join('');
+        profileSelect.addEventListener('change', renderLoginUsers);
+        renderLoginUsers();
+      }
+
+      function renderLoginUsers() {
+        const profile = getSelectedLoginProfile();
+        const userSelect = document.getElementById('login-user');
+        userSelect.innerHTML = (profile.userNames || []).map((userName) => {
+          const selected = userName === profile.defaultUser ? ' selected' : '';
+          return `<option value="${escapeAttr(userName)}"${selected}>${escapeHtml(userName)}</option>`;
+        }).join('');
+      }
+
+      function getSelectedLoginProfile() {
+        const profileId = document.getElementById('login-profile').value;
+        return state.loginModel.profiles.filter((profile) => profile.id === profileId)[0] || state.loginModel.profiles[0];
+      }
+
+      function submitLogin() {
+        state.session = {
+          profileId: document.getElementById('login-profile').value,
+          userName: document.getElementById('login-user').value,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.session));
+        loadDashboard();
+      }
+
+      function showLogin() {
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('login-screen').style.display = 'flex';
+        setLoginStatus('');
+      }
+
+      function readSavedSession() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function isValidSavedSession(session, model) {
+        return Boolean(model.profiles.filter((profile) => profile.id === session.profileId).length);
+      }
+
+      function loadDashboard() {
+        setLoginStatus('Loading dashboard...');
+        setAppStatus('Loading...');
+        return callServer('getDashboardInitialModel', state.session)
+          .then((model) => {
+            state.model = model;
+            state.session = {
+              profileId: model.profile.id,
+              userName: model.profile.userName,
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.session));
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            renderDashboard(model);
+            setLoginStatus('');
+            setAppStatus('');
+            openTab(state.activeTab || 'tasks');
+          })
+          .catch((error) => {
+            setLoginStatus(getErrorMessage(error), true);
+            setAppStatus(getErrorMessage(error), true);
+          });
+      }
+
+      function refreshDashboard() {
+        loadDashboard();
+      }
+
+      function renderDashboard(model) {
+        document.getElementById('identity-user').textContent = model.profile.userName;
+        document.getElementById('identity-role').textContent = `${model.profile.label} - ${model.profile.focusLabel}`;
+        document.getElementById('focus-heading').textContent = model.profile.focusLabel;
+        renderGlobalActions(model.globalActions || []);
+        renderSummary(model.summary || {});
+        renderTasks(model.focusTasks || [], document.getElementById('focus-tasks'), 'No focused tasks');
+        renderTabs(model.tabs || []);
+      }
+
+      function renderGlobalActions(actions) {
+        const container = document.getElementById('global-actions');
+        container.innerHTML = actions.map((item, index) => (
+          `<button type="button" class="${index === 0 ? 'primary' : ''}" onclick="openAction('${escapeAttr(item.action)}', {})">${escapeHtml(item.label)}</button>`
+        )).join('');
+      }
+
+      function renderSummary(summary) {
+        const metrics = [
+          ['Active', summary.total || 0],
+          ['Overdue', summary.overdue || 0],
+          ['Blocked', summary.blocked || 0],
+          ['Owners', Object.keys(summary.byOwner || {}).length],
+        ];
+        Object.keys(summary.byStatus || {}).forEach((status) => {
+          metrics.push([`Status: ${status}`, summary.byStatus[status]]);
+        });
+        Object.keys(summary.byOwner || {}).forEach((owner) => {
+          metrics.push([`Owner: ${owner}`, summary.byOwner[owner]]);
+        });
+        document.getElementById('summary').innerHTML = metrics.map(([label, value]) => `
+          <div class="metric">
+            <div class="metric-value">${escapeHtml(value)}</div>
+            <div class="metric-label">${escapeHtml(label)}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderTabs(tabs) {
+        const container = document.getElementById('tabs');
+        container.innerHTML = tabs.map((tab) => (
+          `<button type="button" class="tab ${tab.id === state.activeTab ? 'is-active' : ''}" onclick="openTab('${escapeAttr(tab.id)}')">${escapeHtml(tab.label)}</button>`
+        )).join('');
+      }
+
+      function openTab(tabId) {
+        state.activeTab = tabId;
+        renderTabs(state.model.tabs || []);
+        if (tabId === 'tasks') loadTasks(state.taskMode);
+        if (tabId === 'filmingCalendar') loadCalendar('filming');
+        if (tabId === 'contentCalendar') loadCalendar('posting');
+        if (tabId === 'kanban') loadKanban();
+        if (tabId === 'ideas') loadIdeas();
+      }
+
+      function loadTasks(mode) {
+        state.taskMode = mode || state.taskMode || 'focus';
+        const view = document.getElementById('view');
+        view.innerHTML = `
+          <div class="panel">
+            <div class="filters">
+              <label>
+                <span class="label-text">Mode</span>
+                <select id="task-mode">
+                  <option value="focus"${state.taskMode === 'focus' ? ' selected' : ''}>Focused</option>
+                  <option value="all"${state.taskMode === 'all' ? ' selected' : ''}>All active</option>
+                </select>
+              </label>
+              <label>
+                <span class="label-text">Search</span>
+                <input id="task-search" type="search" placeholder="Content, owner, status, idea">
+              </label>
+              <button type="button" onclick="applyTaskFilters()">Apply</button>
+            </div>
+            <div id="task-view" class="task-list"><div class="loading">LOADING</div></div>
+          </div>
+        `;
+        callServer('getDashboardTasks', state.session, { mode: state.taskMode })
+          .then((payload) => renderTasks(payload.tasks || [], document.getElementById('task-view'), 'No active tasks match this view'))
+          .catch((error) => renderError('task-view', error));
+      }
+
+      function applyTaskFilters() {
+        const mode = document.getElementById('task-mode').value;
+        const search = document.getElementById('task-search').value;
+        state.taskMode = mode;
+        document.getElementById('task-view').innerHTML = '<div class="loading">LOADING</div>';
+        callServer('getDashboardTasks', state.session, { mode, search })
+          .then((payload) => renderTasks(payload.tasks || [], document.getElementById('task-view'), 'No active tasks match this filter'))
+          .catch((error) => renderError('task-view', error));
+      }
+
+      function renderTasks(tasks, container, emptyLabel) {
+        if (!tasks.length) {
+          container.innerHTML = `<div class="empty"><strong>${escapeHtml(emptyLabel || 'No tasks')}</strong><span>The queue is clear for this view.</span></div>`;
+          return;
+        }
+        container.innerHTML = tasks.map((task) => `
+          <article class="task-row">
+            <div class="task-main">
+              <div class="eyebrow">#${escapeHtml(task.displayContentId || task.contentId)} ${task.brand ? ' / ' + escapeHtml(task.brand) : ''}</div>
+              <div class="task-title">${escapeHtml(task.idea || 'Untitled content')}</div>
+              <div class="meta-line">
+                <span>Status: ${escapeHtml(task.status || 'Blank')}</span>
+                <span>Owner: ${escapeHtml(task.currentOwner || 'Unassigned')}</span>
+                ${task.assignedFilmer ? `<span>Filmer: ${escapeHtml(task.assignedFilmer)}</span>` : ''}
+                ${task.filmingDate ? `<span>Film: ${escapeHtml(task.filmingDate)}</span>` : ''}
+                ${task.postingDate ? `<span>Post: ${escapeHtml([task.postingDate, task.postingTime].filter(Boolean).join(' '))}</span>` : ''}
+              </div>
+              ${renderTaskDetailLine(task)}
+            </div>
+            <div class="task-actions">${renderTaskActions(task)}</div>
+          </article>
+        `).join('');
+      }
+
+      function renderTaskDetailLine(task) {
+        const details = [];
+        if (task.isOverdue && task.overdueLabel) details.push(`<span class="flag">${escapeHtml(task.overdueLabel)}</span>`);
+        if (task.isBlocked && task.blockerIssue) details.push(`<span class="flag">Blocked: ${escapeHtml(task.blockerIssue)}</span>`);
+        if (task.latestVersion) details.push(`<span>Version: V${escapeHtml(task.latestVersion)}</span>`);
+        if (task.schedulingMissing && task.schedulingMissing.length) details.push(`<span>Missing: ${escapeHtml(task.schedulingMissing.join(', '))}</span>`);
+        if (task.captionPreview) details.push(`<span>Caption: ${escapeHtml(task.captionPreview)}</span>`);
+        return details.length ? `<div class="meta-line">${details.join('')}</div>` : '';
+      }
+
+      function renderTaskActions(task) {
+        const actions = task.availableActions || [];
+        if (!actions.length) return '<span class="quiet">No action</span>';
+        return actions.map((item) => (
+          `<button type="button" onclick="openAction('${escapeAttr(item.action)}', { contentId: '${escapeAttr(task.contentId)}' })">${escapeHtml(item.label)}</button>`
+        )).join('');
+      }
+
+      function loadCalendar(type) {
+        const view = document.getElementById('view');
+        const title = type === 'posting' ? 'Content Calendar' : 'Filming Calendar';
+        view.innerHTML = `
+          <div class="panel">
+            <div class="filters">
+              <label>
+                <span class="label-text">Start date</span>
+                <input id="calendar-start" type="date" value="${escapeAttr(state.calendarStart || '')}">
+              </label>
+              <div></div>
+              <button type="button" onclick="reloadCalendar('${escapeAttr(type)}')">Load</button>
+            </div>
+            <div class="section-head">
+              <div class="eyebrow">${escapeHtml(title)}</div>
+              <h2>${escapeHtml(title)}</h2>
+            </div>
+            <div id="calendar-view"><div class="loading">LOADING</div></div>
+          </div>
+        `;
+        callServer('getDashboardCalendar', state.session, { type, startDate: state.calendarStart })
+          .then(renderCalendar)
+          .catch((error) => renderError('calendar-view', error));
+      }
+
+      function reloadCalendar(type) {
+        state.calendarStart = document.getElementById('calendar-start').value;
+        loadCalendar(type);
+      }
+
+      function renderCalendar(payload) {
+        const days = payload.days || [];
+        const eventsByDate = payload.eventsByDate || {};
+        const heads = days.slice(0, 7).map((day) => `<div class="calendar-head">${escapeHtml(day.weekday)}</div>`).join('');
+        const cells = days.map((day) => {
+          const events = eventsByDate[day.key] || [];
+          return `
+            <div class="calendar-day">
+              <div class="date-label">${escapeHtml(day.label)}</div>
+              ${events.map(renderCalendarEvent).join('')}
+            </div>
+          `;
+        }).join('');
+        document.getElementById('calendar-view').innerHTML = `<div class="calendar-grid">${heads}${cells}</div>`;
+      }
+
+      function renderCalendarEvent(event) {
+        return `
+          <div class="event">
+            <strong>${escapeHtml(event.status || 'No status')}</strong><br>
+            ${event.time ? `${escapeHtml(event.time)}<br>` : ''}
+            #${escapeHtml(event.contentId)} ${event.brand ? ' / ' + escapeHtml(event.brand) : ''}<br>
+            ${escapeHtml(event.idea || '')}
+          </div>
+        `;
+      }
+
+      function loadKanban() {
+        document.getElementById('view').innerHTML = '<div id="kanban-view" class="loading">LOADING</div>';
+        callServer('getDashboardKanban', state.session, {})
+          .then(renderKanban)
+          .catch((error) => renderError('kanban-view', error));
+      }
+
+      function renderKanban(payload) {
+        const columns = payload.columns || [];
+        document.getElementById('view').innerHTML = `
+          <div class="kanban-board">
+            ${columns.map((column) => `
+              <section class="kanban-column">
+                <div class="eyebrow">${escapeHtml(column.total)} active</div>
+                <h3>${escapeHtml(column.status)}</h3>
+                <div class="kanban-items">
+                  ${(column.tasks || []).map((task) => `
+                    <article class="kanban-card">
+                      <div class="eyebrow">#${escapeHtml(task.displayContentId || task.contentId)}</div>
+                      <div>${escapeHtml(task.idea || 'Untitled content')}</div>
+                      <div class="quiet">${escapeHtml(task.currentOwner || 'Unassigned')}</div>
+                    </article>
+                  `).join('') || '<div class="quiet">No active items</div>'}
+                </div>
+              </section>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function loadIdeas() {
+        const view = document.getElementById('view');
+        view.innerHTML = `
+          <div class="panel">
+            <div class="filters">
+              <label>
+                <span class="label-text">Status</span>
+                <select id="idea-status">
+                  <option value="">All</option>
+                  <option value="Needs Review">Needs Review</option>
+                  <option value="Reviewed">Reviewed</option>
+                  <option value="Promoted">Promoted</option>
+                  <option value="Backlog">Backlog</option>
+                </select>
+              </label>
+              <label>
+                <span class="label-text">Search</span>
+                <input id="idea-search" type="search" placeholder="Idea, pillar, subject">
+              </label>
+              <button type="button" onclick="applyIdeaFilters()">Apply</button>
+            </div>
+            <div id="idea-view" class="idea-list"><div class="loading">LOADING</div></div>
+          </div>
+        `;
+        callServer('getDashboardIdeas', state.session, {})
+          .then(renderIdeas)
+          .catch((error) => renderError('idea-view', error));
+      }
+
+      function applyIdeaFilters() {
+        document.getElementById('idea-view').innerHTML = '<div class="loading">LOADING</div>';
+        callServer('getDashboardIdeas', state.session, {
+          status: document.getElementById('idea-status').value,
+          search: document.getElementById('idea-search').value,
+        })
+          .then(renderIdeas)
+          .catch((error) => renderError('idea-view', error));
+      }
+
+      function renderIdeas(payload) {
+        const ideas = payload.ideas || [];
+        const container = document.getElementById('idea-view');
+        if (!ideas.length) {
+          container.innerHTML = '<div class="empty"><strong>No ideas</strong><span>No idea records match this view.</span></div>';
+          return;
+        }
+        container.innerHTML = ideas.map((idea) => `
+          <article class="idea-row">
+            <div class="idea-main">
+              <div class="eyebrow">Row ${escapeHtml(idea.row)} / ${escapeHtml(idea.reviewStatus || 'No status')}</div>
+              <div class="idea-title">${escapeHtml(idea.ideaTitle || 'Untitled idea')}</div>
+              <div class="meta-line">
+                ${idea.contentPillar ? `<span>${escapeHtml(idea.contentPillar)}</span>` : ''}
+                ${idea.format ? `<span>${escapeHtml(idea.format)}</span>` : ''}
+                ${idea.goal ? `<span>${escapeHtml(idea.goal)}</span>` : ''}
+                ${idea.submittedBy ? `<span>By ${escapeHtml(idea.submittedBy)}</span>` : ''}
+              </div>
+              ${idea.notes ? `<div class="quiet">${escapeHtml(idea.notes)}</div>` : ''}
+            </div>
+            <div class="task-actions">
+              ${(idea.availableActions || []).map((item) => (
+                `<button type="button" onclick="openAction('${escapeAttr(item.action)}', { ideaRow: '${escapeAttr(idea.row)}' })">${escapeHtml(item.label)}</button>`
+              )).join('') || '<span class="quiet">No action</span>'}
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function openAction(action, context) {
+        closeModalStatus();
+        document.getElementById('overlay').style.display = 'flex';
+        document.getElementById('modal-title').textContent = 'Loading';
+        document.getElementById('modal-context').innerHTML = '';
+        document.getElementById('modal-form').innerHTML = '<div class="loading">LOADING</div>';
+        document.getElementById('modal-submit').disabled = true;
+        callServer('getDashboardActionModel', state.session, action, context || {})
+          .then((model) => {
+            state.modalModel = model;
+            renderModal(model);
+          })
+          .catch((error) => {
+            document.getElementById('modal-form').innerHTML = '';
+            setModalStatus(getErrorMessage(error), true);
+          });
+      }
+
+      function renderModal(model) {
+        document.getElementById('modal-title').textContent = model.title || model.action;
+        document.getElementById('modal-submit').textContent = model.submitLabel || 'Submit';
+        document.getElementById('modal-submit').disabled = false;
+        const contextLines = [];
+        if (model.selectedContent && model.selectedContent.contentId) {
+          contextLines.push(`#${model.selectedContent.contentId} - ${model.selectedContent.idea || ''}`);
+          if (model.selectedContent.status) contextLines.push(`Status: ${model.selectedContent.status}`);
+        }
+        if (model.selectedIdea && model.selectedIdea.row) {
+          contextLines.push(`Idea row ${model.selectedIdea.row} - ${model.selectedIdea.ideaTitle || ''}`);
+        }
+        (model.contextLines || []).forEach((line) => contextLines.push(line));
+        document.getElementById('modal-context').innerHTML = contextLines.map(escapeHtml).join('<br>');
+        document.getElementById('modal-form').innerHTML = (model.fields || []).map(renderField).join('');
+      }
+
+      function renderField(field) {
+        const value = (state.modalModel.defaults || {})[field.name] || '';
+        const requiredMark = field.required ? ' *' : '';
+        if (field.type === 'textarea') {
+          return `<label><span class="label-text">${escapeHtml(field.label)}${requiredMark}</span><textarea name="${escapeAttr(field.name)}"${field.required ? ' required' : ''}>${escapeHtml(value)}</textarea></label>`;
+        }
+        if (field.type === 'select') {
+          const options = (state.modalModel.options || {})[field.optionsKey] || [];
+          return `
+            <label>
+              <span class="label-text">${escapeHtml(field.label)}${requiredMark}</span>
+              <select name="${escapeAttr(field.name)}"${field.required ? ' required' : ''}>
+                <option value=""></option>
+                ${options.map((option) => `<option value="${escapeAttr(option)}"${String(option) === String(value) ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+              </select>
+            </label>
+          `;
+        }
+        if (field.type === 'multiSelect') {
+          const options = (state.modalModel.options || {})[field.optionsKey] || [];
+          const selectedValues = splitMultiSelectValue(value);
+          return `
+            <label>
+              <span class="label-text">${escapeHtml(field.label)}${requiredMark}</span>
+              <div class="multi-select" data-field="${escapeAttr(field.name)}">
+                ${options.map((option) => `
+                  <label class="multi-option">
+                    <input type="checkbox" name="${escapeAttr(field.name)}" value="${escapeAttr(option)}"${selectedValues.indexOf(String(option)) !== -1 ? ' checked' : ''}>
+                    <span>${escapeHtml(option)}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </label>
+          `;
+        }
+        if (field.type === 'checkbox') {
+          return `
+            <label class="checkbox-field">
+              <input type="checkbox" name="${escapeAttr(field.name)}" value="true"${field.required ? ' required' : ''}>
+              <span class="label-text">${escapeHtml(field.label)}${requiredMark}</span>
+            </label>
+          `;
+        }
+        return `<label><span class="label-text">${escapeHtml(field.label)}${requiredMark}</span><input type="${escapeAttr(field.type)}" name="${escapeAttr(field.name)}" value="${escapeAttr(value)}"${field.required ? ' required' : ''}></label>`;
+      }
+
+      function handleModalSubmit(event) {
+        event.preventDefault();
+        if (!state.modalModel) return;
+        const payload = {};
+        (state.modalModel.fields || []).forEach((field) => {
+          payload[field.name] = getFieldValue(event.currentTarget, field);
+        });
+        document.getElementById('modal-submit').disabled = true;
+        setModalStatus('Saving...');
+        callServer('submitDashboardAction', state.session, state.modalModel.action, payload)
+          .then((result) => {
+            setModalStatus(result && result.message ? result.message : 'Saved.');
+            closeModal();
+            return loadDashboard();
+          })
+          .catch((error) => {
+            document.getElementById('modal-submit').disabled = false;
+            setModalStatus(getErrorMessage(error), true);
+          });
+      }
+
+      function getFieldValue(form, field) {
+        if (field.type === 'checkbox') {
+          const input = form.elements[field.name];
+          return String(Boolean(input && input.checked));
+        }
+        if (field.type === 'multiSelect') {
+          return Array.from(form.querySelectorAll(`input[name="${cssEscape(field.name)}"]:checked`))
+            .map((input) => input.value)
+            .join(', ');
+        }
+        const input = form.elements[field.name];
+        return input ? input.value : '';
+      }
+
+      function closeModal() {
+        document.getElementById('overlay').style.display = 'none';
+        state.modalModel = null;
+        closeModalStatus();
+      }
+
+      function closeModalStatus() {
+        setModalStatus('');
+      }
+
+      function setLoginStatus(message, isError) {
+        const node = document.getElementById('login-status');
+        node.textContent = message || '';
+        node.className = `status-line${isError ? ' error' : ''}`;
+      }
+
+      function setAppStatus(message, isError) {
+        const node = document.getElementById('app-status');
+        node.textContent = message || '';
+        node.className = `status-line${isError ? ' error' : ''}`;
+      }
+
+      function setModalStatus(message, isError) {
+        const node = document.getElementById('modal-status');
+        node.textContent = message || '';
+        node.className = `status-line${isError ? ' error' : ''}`;
+      }
+
+      function renderError(id, error) {
+        document.getElementById(id).innerHTML = `<div class="empty"><strong>Error</strong><span>${escapeHtml(getErrorMessage(error))}</span></div>`;
+      }
+
+      function getErrorMessage(error) {
+        return error && error.message ? error.message : String(error || 'Unknown error');
+      }
+
+      function splitMultiSelectValue(value) {
+        return String(value || '')
+          .split(/\s*,\s*|\n+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+
+      function cssEscape(value) {
+        if (window.CSS && CSS.escape) return CSS.escape(value);
+        return String(value).replace(/"/g, '\\"');
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function escapeAttr(value) {
+        return escapeHtml(value).replace(/`/g, '&#96;');
+      }
+
+      document.getElementById('modal-form').addEventListener('submit', handleModalSubmit);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeModal();
+      });
+      init();
+    </script>
+  </body>
+</html>
